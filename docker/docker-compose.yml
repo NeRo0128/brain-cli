@@ -1,0 +1,137 @@
+version: '3.8'
+
+services:
+  brain-cli:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: brain-cli
+    hostname: brain-cli
+    stdin_open: true      # Para TUI interactiva (-i)
+    tty: true            # Para terminal (-t)
+    restart: unless-stopped
+    
+    volumes:
+      # Volumen persistente para base de datos SQLite
+      - brain-data:/app/data
+      
+      # Volumen para scripts personalizados del usuario
+      - brain-scripts:/app/scripts
+      
+      # Volumen para logs
+      - brain-logs:/app/logs
+      
+      # Opcional: Montar scripts locales para desarrollo
+      # - ../scripts:/app/scripts-local:ro
+      
+      # Opcional: Montar configuración local
+      # - ../configs/config.local.yaml:/app/configs/config.yaml:ro
+    
+    environment:
+      # Database
+      - DB_PATH=/app/data/brain.db
+      
+      # Configuration
+      - CONFIG_PATH=/app/configs/config.yaml
+      
+      # Logging
+      - LOG_LEVEL=info
+      - LOG_FILE=/app/logs/brain-cli.log
+      
+      # UI
+      - TERM=xterm-256color
+      - NO_COLOR=false
+      
+      # Security (encryption key - CHANGE THIS!)
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-change-this-secret-key-in-production}
+      
+      # OmniRoute connection (if using external instance)
+      - OMNIROUTE_URL=${OMNIROUTE_URL:-http://omniroute:20128}
+      - OMNIROUTE_API_KEY=${OMNIROUTE_API_KEY:-}
+      
+      # Timezone
+      - TZ=${TZ:-UTC}
+    
+    ports:
+      # Expose port if brain-cli needs to receive connections
+      - "8080:8080"
+    
+    networks:
+      - brain-network
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 128M
+    
+    # Healthcheck
+    healthcheck:
+      test: ["CMD", "/app/brain-cli", "health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ============================================
+  # Optional: OmniRoute service
+  # ============================================
+  # Descomenta si quieres ejecutar OmniRoute en el mismo stack
+  # omniroute:
+  #   image: omniroute/omniroute:latest
+  #   container_name: omniroute
+  #   ports:
+  #     - "20128:20128"
+  #   volumes:
+  #     - omniroute-data:/app/data
+  #   environment:
+  #     - LOG_LEVEL=info
+  #   networks:
+  #     - brain-network
+  #   restart: unless-stopped
+
+# ============================================
+# Volumes
+# ============================================
+volumes:
+  brain-data:
+    driver: local
+    name: brain-data
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}
+  
+  brain-scripts:
+    driver: local
+    name: brain-scripts
+    driver_opts:
+      type: none
+      o: bind
+      device: ${SCRIPTS_DIR:-./scripts}
+  
+  brain-logs:
+    driver: local
+    name: brain-logs
+    driver_opts:
+      type: none
+      o: bind
+      device: ${LOGS_DIR:-./logs}
+  
+  # omniroute-data:
+  #   driver: local
+
+# ============================================
+# Networks
+# ============================================
+networks:
+  brain-network:
+    driver: bridge
+    name: brain-network
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
