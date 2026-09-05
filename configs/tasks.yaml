@@ -1,0 +1,144 @@
+# Brain CLI - Definición de Tareas
+# Última actualización: 2026-09-05
+
+tasks:
+  # ==========================================
+  # AUTOMATIZACIÓN DEL SISTEMA
+  # ==========================================
+  
+  - id: "wifi-vpn"
+    name: "Conectar WiFi + VPN"
+    description: "Conecta a la red WiFi y levanta la VPN automáticamente"
+    type: "script"
+    script_path: "scripts/wifi-vpn.sh"
+    tags: ["network", "automation", "vpn"]
+    priority: "high"
+    
+  - id: "start-dev"
+    name: "Levantar Stack Dev"
+    description: "Inicia OmniRoute y OpenCode para desarrollo"
+    type: "script"
+    script_path: "scripts/start-dev.sh"
+    tags: ["dev", "automation", "docker"]
+    priority: "high"
+    
+  - id: "cleanup"
+    name: "Limpiar Temporales"
+    description: "Elimina archivos temporales y libera espacio en disco"
+    type: "script"
+    script_path: "scripts/cleanup.sh"
+    tags: ["maintenance", "disk", "automation"]
+    priority: "medium"
+    
+  - id: "backup"
+    name: "Backup Rápido"
+    description: "Copia archivos importantes a directorio de backup"
+    type: "script"
+    script_path: "scripts/backup.sh"
+    tags: ["backup", "safety", "automation"]
+    priority: "medium"
+    
+  - id: "monitor"
+    name: "Monitor de Recursos"
+    description: "Muestra uso de CPU, RAM y Disco en tiempo real"
+    type: "script"
+    script_path: "scripts/monitor.sh"
+    tags: ["monitoring", "system", "resources"]
+    priority: "medium"
+  
+  # ==========================================
+  # TAREAS CON IA (OMNIROUTE)
+  # ==========================================
+  
+  - id: "review-emails"
+    name: "Revisar Correos"
+    description: "Lee correos nuevos y los clasifica con IA por urgencia e importancia"
+    type: "ai"
+    requires_ai: true
+    ai_prompt: "Clasifica estos correos por urgencia e importancia. Para cada correo, indica: 1) Nivel de urgencia (Alta/Media/Baja), 2) Resumen en una línea, 3) Acción recomendada si aplica. Correos: {emails}"
+    tags: ["email", "productivity", "ai", "classification"]
+    priority: "medium"
+    
+  - id: "summarize-url"
+    name: "Resumir URL"
+    description: "Extrae contenido de una URL y lo resume en ideas clave"
+    type: "ai"
+    requires_ai: true
+    ai_prompt: "Resume el siguiente contenido en 3-5 ideas clave. Sé conciso y directo: {content}"
+    tags: ["ai", "productivity", "research"]
+    priority: "medium"
+    
+  - id: "natural-translator"
+    name: "Traductor Natural"
+    description: "Convierte una instrucción en lenguaje natural a un comando de terminal"
+    type: "ai"
+    requires_ai: true
+    ai_prompt: "Convierte esta instrucción en lenguaje natural a un comando de terminal de Linux/macOS. Responde SOLO con el comando, sin explicaciones: {instruction}"
+    tags: ["ai", "terminal", "productivity"]
+    priority: "low"
+    
+  - id: "classify-files"
+    name: "Clasificador de Archivos"
+    description: "Analiza archivos en una carpeta y sugiere organización lógica"
+    type: "ai"
+    requires_ai: true
+    ai_prompt: "Analiza esta lista de archivos y sugiere cómo organizarlos en carpetas de forma lógica. Indica qué archivos van en cada carpeta propuesta: {files}"
+    tags: ["ai", "organization", "files"]
+    priority: "low"
+    
+  - id: "ai-chat"
+    name: "Chat con IA"
+    description: "Conversación libre con OmniRoute para consultas generales"
+    type: "ai"
+    requires_ai: true
+    ai_prompt: "{user_input}"
+    tags: ["ai", "chat", "general"]
+    priority: "low"
+  
+  # ==========================================
+  # COMANDOS DEL SISTEMA
+  # ==========================================
+  
+  - id: "docker-status"
+    name: "Estado de Docker"
+    description: "Muestra contenedores Docker en ejecución"
+    type: "command"
+    command: "docker ps -a --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}'"
+    tags: ["docker", "dev", "monitoring"]
+    priority: "low"
+    
+  - id: "git-status-all"
+    name: "Git Status de Proyectos"
+    description: "Verifica estado de git en todos los proyectos activos"
+    type: "script"
+    script_path: "scripts/git-status-all.sh"
+    tags: ["git", "dev", "automation"]
+    priority: "low"
+    
+  - id: "kill-port"
+    name: "Liberar Puerto"
+    description: "Mata proceso que está usando un puerto específico"
+    type: "command"
+    command: "lsof -ti:{port} | xargs kill -9"
+    tags: ["networking", "dev", "troubleshooting"]
+    priority: "low"
+  
+  # ==========================================
+  # UTILIDADES
+  # ==========================================
+  
+  - id: "open-urls"
+    name: "Abrir URLs Frecuentes"
+    description: "Abre repositorios y documentación en navegador"
+    type: "script"
+    script_path: "scripts/open-urls.sh"
+    tags: ["productivity", "shortcuts"]
+    priority: "low"
+    
+  - id: "take-note"
+    name: "Tomar Nota Rápida"
+    description: "Guarda una nota rápida con timestamp"
+    type: "script"
+    script_path: "scripts/take-note.sh"
+    tags: ["notes", "productivity"]
+    priority: "low"

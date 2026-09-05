@@ -1,0 +1,44 @@
+# Brain CLI - Configuración Principal
+# Última actualización: 2026-09-05
+
+app:
+  name: "Brain CLI"
+  version: "1.0.0"
+  log_level: "info"  # debug | info | warn | error
+  log_file: "logs/brain-cli.log"
+
+# Configuración de OmniRoute AI
+omniroute:
+  api_url: "http://localhost:8000/v1"
+  api_key: "${OMNIROUTE_API_KEY}"  # Variable de entorno
+  model: "claude-3-5-sonnet-20241022"
+  timeout: 30  # segundos
+  max_retries: 3
+  retry_delay: 2  # segundos
+
+# Configuración de UI/TUI
+ui:
+  theme: "dark"  # dark | light
+  animations: true
+  show_help: true
+  refresh_rate: 100  # milisegundos
+
+# Configuración de ejecución de tareas
+execution:
+  max_concurrent: 1  # Número máximo de ejecuciones simultáneas
+  default_timeout: 300  # segundos (5 minutos)
+  history_limit: 1000  # Número máximo de ejecuciones guardadas
+  history_db: "data/executions.db"
+
+# Configuración de email (Gmail)
+email:
+  enabled: false  # Activar integración con Gmail
+  credentials_file: "configs/gmail-credentials.json"
+  token_file: "data/gmail-token.json"
+  max_emails: 50  # Número máximo de correos a recuperar
+
+# Configuración de scripts
+scripts:
+  base_path: "scripts/"
+  shell: "/bin/bash"  # Shell por defecto
+  timeout: 300  # segundos
