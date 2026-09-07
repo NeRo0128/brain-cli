@@ -1,8 +1,8 @@
 # AGENTS.md - Brain CLI
 
 **Proyecto:** Brain CLI - Asistente Personal TUI  
-**Versión:** 1.0.0  
-**Última actualización:** 2026-09-05  
+**Versión:** 2.0.0  
+**Última actualización:** 2026-09-07  
 **Estado:** En desarrollo activo
 
 ---
@@ -23,6 +23,11 @@
 ## 🎯 Resumen Ejecutivo
 
 Brain CLI es un **asistente personal de línea de comandos** (Terminal User Interface) construido en Go que combina automatización de tareas del sistema con capacidades de inteligencia artificial mediante OmniRoute. Su objetivo es maximizar la productividad del usuario automatizando workflows repetitivos y proporcionando una interfaz elegante y eficiente.
+
+### Arquitectura v2.0 - Cambios
+- Dockerización completa y gestión de scripts embebidos
+- Nueva estructura de carpetas: separación de proveedores y herramientas
+- Uso de SQLite como única fuente de datos
 
 ### ¿Qué hace Brain CLI?
 
@@ -61,21 +66,23 @@ Brain CLI sigue **Clean Architecture** de Robert C. Martin, organizando el códi
 │  Use Cases Layer (internal/usecases/)                   │
 │  • Task: Create, List, Execute                         │
 │  • Execution: Manage, Monitor                          │
-│  • OmniRoute: Chat, Classify, Summarize                │
+│  • AI: Chat, Classify, Summarize                       │
+│  • Provider: Manage providers                          │
 │  • Responsabilidad: Lógica de aplicación               │
 └─────────────────────────────────────────────────────────┘
                         ↓ depende de
 ┌─────────────────────────────────────────────────────────┐
 │  Domain Layer (internal/core/)                          │
-│  • Entidades: Task, Execution, OmniRouteRequest        │
+│  • Entidades: Task, Execution, Provider, Tool          │
 │  • Interfaces: Repository contracts                     │
 │  • Responsabilidad: Reglas de negocio puras            │
 └─────────────────────────────────────────────────────────┘
                         ↑ implementado por
 ┌─────────────────────────────────────────────────────────┐
 │  Adapters Layer (internal/adapters/)                    │
-│  • CLI Executor: Ejecuta comandos del sistema          │
-│  • OmniRoute Client: HTTP client para API              │
+│  • Executor: Ejecuta comandos/scripts                   │
+│  • AI Provider: Multi-provider (OmniRoute, Ollama)     │
+│  • Database: SQLite with migrations                    │
 │  • Email Client: Integración Gmail                      │
 │  • Config Manager: Lee/escribe YAML                     │
 │  • Responsabilidad: Implementaciones concretas          │
@@ -116,14 +123,54 @@ type Task struct {
 
 #### Tipos de Tareas
 
-1. **ScriptTask**: Ejecuta un script bash/python en `scripts/`
-   - Ejemplo: `scripts/wifi-vpn.sh`
+1. **ScriptTask**: Ejecuta un script bash/python embebido o local
+   - Ejemplo: `wifi-vpn` (script embebido en DB)
    
 2. **CommandTask**: Ejecuta un comando del sistema directamente
-   - Ejemplo: `docker-compose up -d`
+   - Ejemplo: `docker ps -a`
    
-3. **AITask**: Procesa entrada del usuario con OmniRoute
+3. **AITask**: Procesa entrada del usuario con IA
    - Ejemplo: Clasificar correos, resumir URL
+
+### Entidad: Provider
+
+Un **Provider** representa un proveedor de IA configurado en el sistema.
+
+```go
+type Provider struct {
+    ID              int
+    Name            string
+    Type            ProviderType  // omniroute | ollama | openai | deepseek
+    Endpoint        string
+    APIKey          string
+    Model           string
+    IsActive        bool
+    Config          string        // JSON con configuración adicional
+    CreatedAt       time.Time
+    UpdatedAt       *time.Time
+}
+```
+
+### Entidad: Tool
+
+Un **Tool** representa una herramienta o script ejecutable.
+
+```go
+type Tool struct {
+    ID             int
+    Name           string
+    Description    string
+    ScriptContent  string
+    ScriptType     ToolType    // bash | python | native | go
+    Category       Category    // system | dev | ai | utils | custom
+    RequiresSudo   bool
+    TimeoutSeconds int
+    IsBuiltin      bool
+    Version        int
+    CreatedAt      time.Time
+    UpdatedAt      *time.Time
+}
+```
 
 ### Entidad: Execution
 
@@ -197,39 +244,39 @@ Pending → Running → Completed
 **Dependencias**:
 - `TaskRepository`: Para obtener definición de tarea
 - `ExecutionRepository`: Para guardar estado
-- `CLIExecutor` o `OmniRouteClient`: Según tipo de tarea
+- `Executor` o `AIProvider`: Según tipo de tarea
 
-### 2. OmniRoute Client (internal/adapters/omniroute/client.go)
+### 2. AI Provider (internal/adapters/ai/provider.go)
 
-**Responsabilidad**: Comunicación HTTP con la API de OmniRoute.
+**Responsabilidad**: Comunicación con múltiples proveedores de IA.
 
 **Operaciones**:
 
 ```go
-type OmniRouteClient interface {
-    Chat(ctx context.Context, req OmniRouteRequest) (OmniRouteResponse, error)
-    Classify(ctx context.Context, content string) (Classification, error)
-    Summarize(ctx context.Context, content string) (Summary, error)
+type Provider interface {
+    Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, error)
+    ChatStreaming(ctx context.Context, req *ChatRequest, handler StreamHandler) error
+    IsAvailable(ctx context.Context) bool
+    GetType() string
 }
 ```
 
-**Características**:
-- Autenticación con Bearer token
-- Retry logic con exponential backoff
-- Manejo de rate limiting (429)
-- Timeouts configurables
-- Streaming de respuestas (para chat largo)
+**Proveedores soportados**:
+- `OmniRouteProvider`: Cliente HTTP para OmniRoute API
+- `OllamaProvider`: Soporte local con Ollama
+- OpenAI, DeepSeek, Anthropic (planificados)
 
-### 3. CLI Executor (internal/adapters/cli/executor.go)
+### 3. Executor (internal/adapters/executor/executor.go)
 
-**Responsabilidad**: Ejecutar comandos del sistema y scripts.
+**Responsabilidad**: Ejecutar scripts y comandos del sistema.
 
 **Operaciones**:
 
 ```go
-type CLIExecutor interface {
-    RunCommand(ctx context.Context, cmd string, args []string) (Output, error)
-    RunScript(ctx context.Context, scriptPath string) (Output, error)
+type Executor interface {
+    Execute(ctx context.Context, scriptContent string, params map[string]string) (*Output, error)
+    IsAvailable() bool
+    GetType() string
 }
 ```
 
@@ -239,6 +286,27 @@ type CLIExecutor interface {
 - Variables de entorno configurables
 - Working directory configurable
 - Timeout por comando
+- Soporte para bash, python, native, go
+
+### 4. AI Provider (internal/adapters/ai/provider.go)
+
+**Responsabilidad**: Comunicación con múltiples proveedores de IA.
+
+**Operaciones**:
+
+```go
+type Provider interface {
+    Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, error)
+    ChatStreaming(ctx context.Context, req *ChatRequest, handler StreamHandler) error
+    IsAvailable(ctx context.Context) bool
+    GetType() string
+}
+```
+
+**Proveedores soportados**:
+- `OmniRouteProvider`: Cliente HTTP para OmniRoute API
+- `OllamaProvider`: Soporte local con Ollama
+- OpenAI, DeepSeek, Anthropic (planificados)
 
 ### 4. Config Manager (internal/adapters/config/config.go)
 
@@ -250,52 +318,30 @@ type CLIExecutor interface {
 ```yaml
 app:
   name: "Brain CLI"
-  version: "1.0.0"
+  version: "2.0.0"
   log_level: "info"
 
-omniroute:
-  api_url: "http://localhost:8000/v1"
-  api_key: "${OMNIROUTE_API_KEY}"
-  model: "claude-3-5-sonnet-20241022"
-  timeout: 30
-
-ui:
-  theme: "dark"
-  animations: true
-  
 execution:
   max_concurrent: 1
   default_timeout: 300
   history_limit: 1000
+
+ui:
+  theme: "dark"
+  animations: true
 ```
 
-#### `configs/tasks.yaml`
-```yaml
-tasks:
-  - id: "wifi-vpn"
-    name: "Conectar WiFi + VPN"
-    description: "Conecta a la red WiFi y levanta la VPN"
-    type: "script"
-    script_path: "scripts/wifi-vpn.sh"
-    tags: ["network", "automation"]
-    priority: "high"
-    
-  - id: "start-dev"
-    name: "Levantar Stack Dev"
-    description: "Inicia OmniRoute y OpenCode"
-    type: "script"
-    script_path: "scripts/start-dev.sh"
-    tags: ["dev", "automation"]
-    priority: "high"
-    
-  - id: "review-emails"
-    name: "Revisar Correos"
-    description: "Lee correos nuevos y los clasifica con IA"
-    type: "ai"
-    requires_ai: true
-    ai_prompt: "Clasifica estos correos por urgencia e importancia: {emails}"
-    tags: ["email", "productivity", "ai"]
-    priority: "medium"
+#### `docker/.env.example`
+```bash
+# Database
+DB_PATH=/app/data/brain.db
+
+# OmniRoute connection
+OMNIROUTE_URL=http://omniroute:20128
+OMNIROUTE_API_KEY=your-api-key
+
+# Encryption
+ENCRYPTION_KEY=your-encryption-key
 ```
 
 ### 5. TUI Application (internal/ui/app.go)
@@ -318,7 +364,7 @@ type Model struct {
 ```
 
 **Comandos Bubble Tea**:
-- `LoadTasksCmd`: Carga tareas desde YAML
+- `LoadTasksCmd`: Carga tareas desde SQLite
 - `ExecuteTaskCmd`: Ejecuta una tarea (async)
 - `PollExecutionCmd`: Consulta estado de ejecución
 - `LoadHistoryCmd`: Carga historial desde DB
@@ -523,6 +569,19 @@ goimports -w .
 staticcheck ./...
 ```
 
+### Docker
+
+```bash
+# Build image
+docker build -f docker/Dockerfile -t brain-cli .
+
+# Run with docker-compose
+cd docker && docker-compose up -d
+
+# View logs
+docker-compose logs -f brain-cli
+```
+
 ### Utilidades
 
 ```bash
@@ -547,99 +606,90 @@ go clean -cache
 ```
 brain-cli/
 ├── cmd/
-│   └── tui-assistant/
+│   └── brain-cli/
 │       └── main.go                 # Entry point
 │
 ├── internal/
 │   ├── core/                       # Domain Layer
-│   │   ├── task/
-│   │   │   ├── entity.go          # Task entity
-│   │   │   ├── repository.go      # TaskRepository interface
-│   │   │   └── types.go           # Enums (TaskType, Priority)
-│   │   ├── execution/
-│   │   │   ├── entity.go          # Execution entity
-│   │   │   ├── repository.go      # ExecutionRepository interface
-│   │   │   └── types.go           # Enums (ExecutionStatus)
-│   │   └── omniroute/
-│   │       ├── entity.go          # Request/Response models
-│   │       └── client.go          # OmniRouteClient interface
+│   │   ├── task/                   # Task entity & repository interface
+│   │   ├── execution/              # Execution entity & repository interface
+│   │   ├── provider/               # Provider entity (AI providers)
+│   │   └── tool/                   # Tool entity (scripts)
 │   │
 │   ├── usecases/                   # Application Layer
-│   │   ├── task/
-│   │   │   ├── create.go          # CreateTask use case
-│   │   │   ├── list.go            # ListTasks use case
-│   │   │   ├── execute.go         # ExecuteTask use case
-│   │   │   └── executor.go        # TaskExecutor orchestrator
-│   │   ├── execution/
-│   │   │   ├── get.go             # GetExecution use case
-│   │   │   ├── list.go            # ListExecutions use case
-│   │   │   └── manager.go         # ExecutionManager
-│   │   └── omniroute/
-│   │       ├── chat.go            # Chat use case
-│   │       ├── classify.go        # Classify use case
-│   │       └── summarize.go       # Summarize use case
+│   │   ├── task/                   # Task CRUD & execution
+│   │   ├── execution/              # Execution management
+│   │   ├── ai/                     # AI operations (chat, classify, summarize)
+│   │   └── provider/               # Provider management
 │   │
 │   ├── adapters/                   # Infrastructure Layer
-│   │   ├── cli/
-│   │   │   ├── executor.go        # Command executor implementation
-│   │   │   └── scripts.go         # Script executor implementation
-│   │   ├── email/
-│   │   │   ├── client.go          # Gmail client implementation
-│   │   │   └── auth.go            # OAuth2 authentication
-│   │   ├── omniroute/
-│   │   │   ├── client.go          # HTTP client implementation
-│   │   │   ├── models.go          # API models
-│   │   │   └── retry.go           # Retry logic
-│   │   ├── repository/
-│   │   │   ├── task_yaml.go       # YAML TaskRepository impl
-│   │   │   ├── execution_sqlite.go # SQLite ExecutionRepository impl
-│   │   │   └── migrations.go      # DB migrations
-│   │   └── config/
-│   │       ├── config.go          # Config manager
-│   │       └── loader.go          # YAML loader
+│   │   ├── database/               # SQLite & migrations
+│   │   │   ├── sqlite.go           # Database connection
+│   │   │   ├── migrations/         # SQL migrations
+│   │   │   └── repositories/       # Repository implementations
+│   │   ├── executor/               # Script/command executors
+│   │   │   ├── bash.go             # Bash executor
+│   │   │   ├── python.go           # Python executor
+│   │   │   └── native.go           # Native commands
+│   │   ├── ai/                     # AI providers
+│   │   │   ├── provider.go         # Provider interface
+│   │   │   ├── omniroute.go        # OmniRoute provider
+│   │   │   └── ollama.go           # Ollama provider
+│   │   ├── email/                  # Gmail integration
+│   │   └── config/                 # Configuration manager
 │   │
 │   └── ui/                         # Presentation Layer
 │       ├── app.go                  # Main Bubble Tea application
 │       ├── screens/
-│       │   ├── main.go            # Main menu screen
-│       │   ├── task_list.go       # Task list screen
-│       │   ├── execution.go       # Execution details screen
-│       │   ├── history.go         # History screen
-│       │   └── settings.go        # Settings screen
+│       │   ├── main.go             # Main menu screen
+│       │   ├── task_list.go        # Task list screen
+│       │   ├── execution.go        # Execution details screen
+│       │   ├── history.go          # History screen
+│       │   ├── settings.go         # Settings screen
+│       │   └── providers.go        # Provider management screen
 │       ├── components/
-│       │   ├── menu.go            # Menu component
-│       │   ├── status_bar.go      # Status bar component
-│       │   ├── spinner.go         # Loading spinner
-│       │   └── table.go           # Table component
+│       │   ├── menu.go             # Menu component
+│       │   ├── status_bar.go       # Status bar component
+│       │   ├── spinner.go          # Loading spinner
+│       │   └── table.go            # Table component
 │       └── styles/
-│           └── theme.go           # lipgloss styles
+│           └── theme.go            # lipgloss styles
 │
-├── pkg/                           # Public packages (reusable)
+├── embed/                          # Embedded files
+│   ├── scripts/                    # Default scripts (embedded in binary)
+│   └── migrations/                 # SQL migrations (embedded)
+│
+├── pkg/                            # Public packages (reusable)
 │   └── utils/
-│       ├── logger.go              # Structured logger
-│       ├── validator.go           # Input validation
-│       └── formatter.go           # Output formatting
+│       ├── logger.go               # Structured logger
+│       ├── validator.go            # Input validation
+│       └── formatter.go            # Output formatting
 │
-├── scripts/                       # Automation scripts
-│   ├── wifi-vpn.sh               # WiFi + VPN automation
-│   ├── start-dev.sh              # Start development stack
-│   ├── cleanup.sh                # Clean temporary files
-│   ├── backup.sh                 # Quick backup
-│   └── monitor.sh                # Resource monitoring
+├── scripts/                        # Custom scripts (user-defined)
+│
+├── docker/                         # Docker infrastructure
+│   ├── Dockerfile                  # Multi-stage build
+│   ├── docker-compose.yml          # Container orchestration
+│   ├── entrypoint.sh               # Initialization script
+│   └── .env.example                # Environment variables example
+│
+├── data/                           # Persistent data (SQLite DB)
 │
 ├── configs/
-│   ├── config.yaml               # Main configuration
-│   └── tasks.yaml                # Task definitions
+│   └── config.yaml                 # Main configuration (no tasks)
 │
 ├── docs/
+│   ├── GITHUB_ISSUES.md            # GitHub issues template
+│   ├── MIGRATION_PLAN.md           # v1→v2 migration plan
 │   └── plans/
-│       └── development-roadmap.md # Development plan
+│       └── development-roadmap.md  # Development plan
 │
-├── go.mod                        # Go modules
-├── go.sum                        # Dependency checksums
-├── AGENTS.md                     # This file
-├── README.md                     # Project readme
-└── Makefile                      # Build automation
+├── go.mod                          # Go modules
+├── go.sum                          # Dependency checksums
+├── AGENTS.md                       # This file
+├── README.md                       # Project readme
+├── DEVELOPMENT.md                  # Development guide
+└── Makefile                        # Build automation
 ```
 
 ---
@@ -713,12 +763,17 @@ Guardado en SQLite para análisis:
 
 1. ✅ Estructura de carpetas creada
 2. ✅ Plan de desarrollo documentado
-3. ⏳ Inicializar go.mod con dependencias
-4. ⏳ Crear issues en GitHub
-5. ⏳ Implementar Hito 1: Fundación
+3. ✅ go.mod con dependencias configurado
+4. ✅ Infrastructure Docker completada
+5. ✅ Entidades Core (Provider, Tool) implementadas
+6. ⏳ Implementar repositorios SQLite
+7. ⏳ Implementar UI con Bubble Tea
+8. ⏳ Implementar adaptadores de ejecución
+9. ⏳ Crear issues en GitHub
+10. ⏳ Implementar Hito 1: Fundación
 
 ---
 
 **Mantenedores**: Nero  
 **Licencia**: MIT  
-**Repositorio**: https://github.com/your-username/brain-cli (pendiente)
+**Repositorio**: https://github.com/NeRo0128/brain-cli
