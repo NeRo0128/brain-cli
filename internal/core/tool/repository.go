@@ -1,32 +1,22 @@
 package tool
 
-import "context"
+import (
+	"context"
+	"errors"
+)
 
-// Repository define las operaciones de persistencia para herramientas
+var (
+	ErrNotFound      = errors.New("tool no encontrada")
+	ErrDuplicateName = errors.New("tool.name ya existe")
+)
+
 type Repository interface {
-	// Create crea una nueva herramienta
-	Create(ctx context.Context, tool *Tool) error
-	
-	// GetByID obtiene una herramienta por su ID
-	GetByID(ctx context.Context, id int) (*Tool, error)
-	
-	// GetByName obtiene una herramienta por su nombre
-	GetByName(ctx context.Context, name string) (*Tool, error)
-	
-	// List lista todas las herramientas
-	List(ctx context.Context) ([]*Tool, error)
-	
-	// ListByCategory lista herramientas por categoría
-	ListByCategory(ctx context.Context, category Category) ([]*Tool, error)
-	
-	// ListBuiltin lista solo herramientas builtin
-	ListBuiltin(ctx context.Context) ([]*Tool, error)
-	
-	// Update actualiza una herramienta existente
-	Update(ctx context.Context, tool *Tool) error
-	
-	// Delete elimina una herramienta
-	Delete(ctx context.Context, id int) error
+	Create(ctx context.Context, t *Tool) error                              // Create inserta el tool y RELLENA t.ID, t.CreatedAt.
+	GetByID(ctx context.Context, id int) (*Tool, error)                     // GetByID devuelve ErrNotFound si no existe o está soft-deleted.
+	GetByName(ctx context.Context, name string) (*Tool, error)              // GetByName devuelve ErrNotFound si no existe.
+	List(ctx context.Context) ([]*Tool, error)                              // List no incluye soft-deleted.
+	ListByCategory(ctx context.Context, category Category) ([]*Tool, error) // ListByCategory filtra por categoría. Sin soft-deleted.
+	ListBuiltin(ctx context.Context) ([]*Tool, error)                       // ListBuiltin lista solo las builtin (IsBuiltin=true).
+	Update(ctx context.Context, t *Tool) error                              // Update modifica un tool existente. Rellena t.UpdatedAt.
+	Delete(ctx context.Context, id int) error                               // Delete hace soft-delete (UPDATE deleted_at = now).
 }
-
-// TODO: Implementar SQLite repository en internal/adapters/database/repositories/tool_repo.go
