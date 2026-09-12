@@ -29,8 +29,10 @@ type Task struct {
 	RequiresAI bool   `db:"requires_ai" json:"requires_ai" yaml:"requires_ai"`
 	AIPrompt   string `db:"ai_prompt"   json:"ai_prompt,omitempty" yaml:"ai_prompt,omitempty"`
 
-	Tags     []string `db:"tags"     json:"tags,omitempty" yaml:"tags,omitempty"`
-	Priority Priority `db:"priority" json:"priority"       yaml:"priority"`
+	Tags       []string `db:"tags"     json:"tags,omitempty" yaml:"tags,omitempty"`
+	Priority   Priority `db:"priority" json:"priority"       yaml:"priority"`
+	IsActive   bool     `db:"is_active"   json:"is_active"`
+	IsFavorite bool     `db:"is_favorite" json:"is_favorite"`
 
 	CreatedAt time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at" json:"updated_at,omitempty"`
@@ -76,7 +78,7 @@ func (t *Task) Validate() error {
 	}
 
 	if t.RequiresAI != (t.Type == TaskTypeAI) {
-    errs = append(errs, errors.New("task.requires_ai debe coincidir con type=ai"))
+		errs = append(errs, errors.New("task.requires_ai debe coincidir con type=ai"))
 	}
 
 	seen := make(map[string]struct{}, len(t.Tags))
