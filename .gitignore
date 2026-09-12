@@ -53,3 +53,8 @@ temp/
 # Development artifacts
 *.pprof
 *.trace
+
+
+data/*.db
+data/*.db-shm
+data/*.db-wal
