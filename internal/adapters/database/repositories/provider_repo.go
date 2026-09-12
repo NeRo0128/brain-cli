@@ -3,8 +3,7 @@ package repositories
 import (
 	"context"
 	"database/sql"
-	
-	"github.com/nero/brain-cli/internal/core/provider"
+	"github.com/NeRo0128/brain-cli/internal/core/provider"
 )
 
 // SQLiteProviderRepository implementa provider.Repository usando SQLite
