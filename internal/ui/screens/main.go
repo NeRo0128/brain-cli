@@ -3,13 +3,18 @@ package screens
 import (
 	"context"
 	"fmt"
-	"strings"
+	"io"
 	"time"
+
+	"github.com/charmbracelet/bubbles/list"
 
 	"github.com/NeRo0128/brain-cli/internal/core/task"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
+
+// --- Mensajes propios de la pantalla ---
 
 // tasksLoadedMsg transporta las tasks que llegan de la DB.
 type tasksLoadedMsg struct {
@@ -17,99 +22,163 @@ type tasksLoadedMsg struct {
 	err   error
 }
 
-// MainScreen es la pantalla principal de la aplicación.
-// Por ahora solo muestra el título y la versión, pero aquí
-// vivirán la lista de tareas y el menú principal.
+// --- Item de la lista ---
+
+// taskItem adapta *task.Task a list.Item (Title + Description).
+type taskItem struct {
+	task *task.Task
+}
+
+func (i taskItem) Title() string {
+	title := i.task.Name
+	if i.task.IsFavorite {
+		title = "★ " + title
+	}
+	return title
+}
+
+func (i taskItem) Description() string {
+	return fmt.Sprintf("[%s] %s  ·  %s", i.task.ID, i.task.Type, i.task.Priority)
+}
+
+// FilterValue permite buscar por nombre e ID.
+func (i taskItem) FilterValue() string {
+	return i.task.Name + " " + i.task.ID
+}
+
+// --- Item delegate (cómo se renderiza cada fila) ---
+
+type taskDelegate struct{}
+
+func (d taskDelegate) Height() int                             { return 2 }
+func (d taskDelegate) Spacing() int                            { return 1 }
+func (d taskDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+
+func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
+	it, ok := item.(taskItem)
+	if !ok {
+		return
+	}
+
+	selected := index == m.Index()
+
+	titleStyle := lipgloss.NewStyle().Foreground(styles.Text)
+	descStyle := lipgloss.NewStyle().Foreground(styles.Muted)
+	cursor := "  "
+
+	if selected {
+		titleStyle = titleStyle.Bold(true).Foreground(styles.Primary)
+		cursor = "▶ "
+	}
+
+	fmt.Fprintf(w, "%s%s\n", cursor, titleStyle.Render(it.Title()))
+	fmt.Fprintf(w, "   %s", descStyle.Render(it.Description()))
+}
+
+// --- Pantalla principal ---
+
+// MainScreen es la pantalla de lista de tasks.
 type MainScreen struct {
 	width   int
 	height  int
-	version string
 	appName string
-
-	taskRepo task.Repository
+	version string
 
 	loading bool
-	tasks   []*task.Task
 	err     error
+	list    list.Model
+	repo    task.Repository
 }
 
-// NewMainScreen construye la pantalla inicial.
-// Acepta la versión para poder mostrarla (inyección de dependencias).
+// NewMainScreen construye la pantalla.
 func NewMainScreen(version, appName string, repo task.Repository) MainScreen {
+	l := list.New(nil, taskDelegate{}, 80, 20)
+	l.Title = "Tareas"
+	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(true)
+	l.Styles.Title = styles.Title
+	l.Styles.HelpStyle = styles.Help
+
 	return MainScreen{
-		version:  version,
-		appName:  appName,
-		taskRepo: repo,
-		loading:  true,
+		appName: appName,
+		version: version,
+		list:    l,
+		repo:    repo,
+		loading: true,
 	}
 }
 
-// Init devuelve el comando inicial. Por ahora no hacemos nada.
+// Init dispara la carga asíncrona.
 func (m MainScreen) Init() tea.Cmd {
-
-	repo := m.taskRepo
+	repo := m.repo
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-
 		tasks, err := repo.List(ctx)
 		return tasksLoadedMsg{tasks: tasks, err: err}
 	}
 }
 
-// Update procesa mensajes y devuelve el nuevo estado.
+// Update maneja los mensajes.
 func (m MainScreen) Update(msg tea.Msg) (MainScreen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		// Guardamos el tamaño para layout responsive
 		m.width = msg.Width
 		m.height = msg.Height
+		m.list.SetSize(msg.Width, msg.Height-6)
+
 	case tasksLoadedMsg:
 		m.loading = false
-		m.tasks = msg.tasks
 		m.err = msg.err
+		if msg.err == nil {
+			m.setItems(msg.tasks)
+		}
+		return m, nil
 	}
-	return m, nil
+
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
+	return m, cmd
 }
 
-// View renderiza la pantalla como string.
-func (m MainScreen) View() string {
-	var b strings.Builder
+// setItems pobla la lista con las tasks.
+func (m *MainScreen) setItems(tasks []*task.Task) {
+	items := make([]list.Item, len(tasks))
+	for i, t := range tasks {
+		items[i] = taskItem{task: t}
+	}
+	m.list.SetItems(items)
+}
 
-	b.WriteString(styles.Title.Render("🧠 " + m.appName))
-	b.WriteString("  ")
-	b.WriteString(styles.Subtitle.Render("v" + m.version))
-	b.WriteString("\n\n")
+// SelectedTask devuelve la task actualmente seleccionada (nil si no hay).
+func (m MainScreen) SelectedTask() *task.Task {
+	it, ok := m.list.SelectedItem().(taskItem)
+	if !ok {
+		return nil
+	}
+	return it.task
+}
+
+// View renderiza la pantalla.
+func (m MainScreen) View() string {
+	header := styles.Title.Render("🧠 "+m.appName) + "  " +
+		styles.Subtitle.Render("v"+m.version)
 
 	switch {
 	case m.loading:
-		b.WriteString(styles.Subtitle.Render("Cargando tareas..."))
-		b.WriteString("\n")
+		return header + "\n\n" + styles.Subtitle.Render("Cargando tareas...") + "\n"
 	case m.err != nil:
-		b.WriteString(styles.Key.Render("Error: "))
-		b.WriteString(m.err.Error())
-		b.WriteString("\n")
-	case len(m.tasks) == 0:
-		b.WriteString(styles.Subtitle.Render("No hay tareas registradas."))
-		b.WriteString("\n")
-	default:
-		b.WriteString(fmt.Sprintf("Tareas (%d):\n\n", len(m.tasks)))
-		for _, t := range m.tasks {
-			b.WriteString("  ")
-			b.WriteString(styles.Subtitle.Render("[" + t.ID + "] "))
-			b.WriteString(t.Name)
-			if t.IsFavorite {
-				b.WriteString(" ★")
-			}
-			b.WriteString("\n")
-		}
+		return header + "\n\n" + styles.Key.Render("Error: ") + m.err.Error() + "\n"
 	}
 
-	b.WriteString("\n")
-	b.WriteString(styles.Help.Render(
-		styles.Key.Render("q") + " salir  •  " +
-			styles.Key.Render("?") + " ayuda",
-	))
+	help := styles.Help.Render(
+		styles.Key.Render("↑↓") + " navegar  ·  " +
+			styles.Key.Render("Enter") + " ejecutar  ·  " +
+			styles.Key.Render("d") + " detalle  ·  " +
+			styles.Key.Render("h") + " historial  ·  " +
+			styles.Key.Render("/") + " filtrar  ·  " +
+			styles.Key.Render("q") + " salir",
+	)
 
-	return b.String()
+	return header + "\n\n" + m.list.View() + "\n" + help
 }

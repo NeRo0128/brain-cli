@@ -32,3 +32,33 @@ var (
 		Bold(true).
 		Foreground(Secondary)
 )
+
+// Añade al final del archivo existente.
+
+var (
+	SuccessStyle = lipgloss.NewStyle().
+			Foreground(Success).
+			Bold(true)
+
+	ErrorStyle = lipgloss.NewStyle().
+			Foreground(Error).
+			Bold(true)
+
+	WarningStyle = lipgloss.NewStyle().
+			Foreground(Warning).
+			Bold(true)
+)
+
+// Añade al final:
+var SectionHeader = lipgloss.NewStyle().
+	Bold(true).
+	Foreground(Secondary).
+	MarginTop(1)
+
+// Añade al final:
+var SpinnerStyle = lipgloss.NewStyle().
+	Foreground(Primary).
+	Bold(true)
+
+var TimerStyle = lipgloss.NewStyle().
+	Foreground(Secondary)

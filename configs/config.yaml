@@ -13,7 +13,7 @@ database:
 logging:
   level: ${BRAIN_LOG_LEVEL:-debug}
   format: ${BRAIN_LOG_FORMAT:-pretty}
-  output_path: "" # vacío = stdout
+  output_path: /tmp/brain-cli.log
   max_size_mb: 100
 
 ui:
