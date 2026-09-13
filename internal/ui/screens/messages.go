@@ -3,6 +3,7 @@ package screens
 import (
 	"github.com/NeRo0128/brain-cli/internal/core/execution"
 	coretask "github.com/NeRo0128/brain-cli/internal/core/task"
+	"github.com/NeRo0128/brain-cli/internal/core/tool"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -76,4 +77,25 @@ type FormSavedMsg struct{}
 
 func FormSaved() tea.Cmd {
 	return func() tea.Msg { return FormSavedMsg{} }
+}
+
+// OpenToolPickerMsg pide al Model pushear el ToolPickerScreen.
+// CurrentID permite resaltar el tool actualmente seleccionado.
+type OpenToolPickerMsg struct {
+	CurrentID  *int
+	FilterType tool.ScriptType
+}
+
+// ToolSelectedMsg lo emite el ToolPickerScreen al elegir un tool.
+// El Model lo delega al nuevo top (el form que lo abrió).
+type ToolSelectedMsg struct{ Tool *tool.Tool }
+
+func OpenToolPicker(current *int, filter tool.ScriptType) tea.Cmd {
+	return func() tea.Msg {
+		return OpenToolPickerMsg{CurrentID: current, FilterType: filter}
+	}
+}
+
+func ToolSelected(t *tool.Tool) tea.Cmd {
+	return func() tea.Msg { return ToolSelectedMsg{Tool: t} }
 }

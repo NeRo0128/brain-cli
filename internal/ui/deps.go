@@ -22,4 +22,6 @@ type Deps struct {
 	ExecRepo execution.Repository
 	Keys     *keys.Registry
 	Log      zerolog.Logger
+
+	Interpreter []tool.Interpreter
 }
