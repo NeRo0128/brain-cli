@@ -22,6 +22,7 @@ const (
 	ActionSave    = "action.save"
 	ActionCancel  = "action.cancel"
 	ActionRefresh = "action.refresh"
+	ActionRerun   = "action.rerun"      // re-ejecutar task desde resultado
 
 	// --- Vistas ---
 	ViewDetail   = "view.detail"

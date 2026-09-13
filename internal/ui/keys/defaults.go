@@ -23,6 +23,7 @@ var Defaults = []Binding{
 	{ID: ActionSave, Keys: []string{"ctrl+s"}, Help: "guardar", Group: GroupAction},
 	{ID: ActionCancel, Keys: []string{"esc"}, Help: "cancelar", Group: GroupAction},
 	{ID: ActionRefresh, Keys: []string{"ctrl+r"}, Help: "refrescar", Group: GroupAction},
+	{ID: ActionRerun, Keys: []string{"r"}, Help: "re-ejecutar", Group: GroupAction},
 
 	// --- Vistas ---
 	{ID: ViewDetail, Keys: []string{"d"}, Help: "detalle", Group: GroupView},
