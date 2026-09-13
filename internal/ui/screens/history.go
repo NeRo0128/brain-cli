@@ -12,6 +12,7 @@ import (
 
 	"github.com/NeRo0128/brain-cli/internal/core/execution"
 	"github.com/NeRo0128/brain-cli/internal/core/task"
+	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
 
@@ -148,7 +149,16 @@ func (m HistoryScreen) Init() tea.Cmd {
 }
 
 // Update maneja mensajes.
-func (m HistoryScreen) Update(msg tea.Msg) (HistoryScreen, tea.Cmd) {
+func (m HistoryScreen) Keys() []string {
+	return []string{
+		keys.NavConfirm,
+		keys.NavBack,
+		keys.ViewHelp,
+	}
+}
+
+// REEMPLAZA Update:
+func (m HistoryScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.list.SetSize(msg.Width, msg.Height-6)
@@ -162,11 +172,30 @@ func (m HistoryScreen) Update(msg tea.Msg) (HistoryScreen, tea.Cmd) {
 			m.setItems(msg.executions)
 		}
 		return m, nil
+
+	case ActionMsg:
+		return m.handleAction(msg)
 	}
 
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
 	return m, cmd
+}
+
+func (m HistoryScreen) handleAction(msg ActionMsg) (ScreenI, tea.Cmd) {
+	switch msg.ID {
+	case keys.NavConfirm:
+		exec, name := m.SelectedExecution()
+		if exec == nil {
+			return m, nil
+		}
+		return m, OpenResult(name, exec)
+	case keys.NavBack:
+		return m, Back()
+	case keys.ViewHelp:
+		return m, OpenHelp()
+	}
+	return m, nil
 }
 
 // SelectedExecution devuelve la ejecución seleccionada + nombre de la task.

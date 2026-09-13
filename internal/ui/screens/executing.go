@@ -38,13 +38,15 @@ func (m ExecutingScreen) Init() tea.Cmd {
 	return tea.Batch(m.spinner.Tick, m.tick())
 }
 
-func (m ExecutingScreen) Update(msg tea.Msg) (ExecutingScreen, tea.Cmd) {
+func (m ExecutingScreen) Keys() []string { return nil }
+
+// REEMPLAZA Update:
+func (m ExecutingScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, cmd
-
 	case executingTickMsg:
 		return m, m.tick()
 	}

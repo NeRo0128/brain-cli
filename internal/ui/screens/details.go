@@ -8,6 +8,7 @@ import (
 
 	"github.com/NeRo0128/brain-cli/internal/core/task"
 	"github.com/NeRo0128/brain-cli/internal/core/tool"
+	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -69,41 +70,58 @@ func (m DetailScreen) Init() tea.Cmd {
 
 	return tea.Batch(cmds...)
 }
+func (m DetailScreen) Keys() []string {
+	return []string{
+		keys.ActionExecute,
+		keys.EditUpdate,
+		keys.NavBack,
+		keys.ViewHelp,
+	}
+}
 
-// Update maneja mensajes.
-func (m DetailScreen) Update(msg tea.Msg) (DetailScreen, tea.Cmd) {
+// REEMPLAZA Update:
+func (m DetailScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.log.Debug().
-			Int("w", msg.Width).
-			Int("h", msg.Height).
-			Msg("WindowSizeMsg")
 		m.viewport = viewport.New(msg.Width, msg.Height-8)
 		m.viewport.SetContent(m.renderContent())
 		m.ready = true
 		return m, nil
 
 	case toolLoadedMsg:
-		m.log.Debug().
-			Err(msg.err).
-			Bool("has_tool", msg.tool != nil).
-			Bool("ready", m.ready).
-			Msg("toolLoadedMsg recibido")
 		m.loading = false
 		m.tool = msg.tool
 		m.toolErr = msg.err
 		if m.ready {
 			m.viewport.SetContent(m.renderContent())
-		} else {
-			m.log.Warn().Msg("toolLoadedMsg llegó ANTES de WindowSizeMsg — contenido no seteado")
-
 		}
 		return m, nil
+
+	case ActionMsg:
+		return m.handleAction(msg)
 	}
 
 	var cmd tea.Cmd
 	m.viewport, cmd = m.viewport.Update(msg)
 	return m, cmd
+}
+
+func (m DetailScreen) handleAction(msg ActionMsg) (ScreenI, tea.Cmd) {
+	switch msg.ID {
+	case keys.ActionExecute:
+		tk := m.Task()
+		if tk == nil {
+			return m, nil
+		}
+		return m, ExecuteTask(tk.ID, tk.Name)
+	case keys.NavBack:
+		return m, Back()
+	case keys.ViewHelp:
+		return m, OpenHelp()
+	case keys.EditUpdate:
+		return m, OpenForm(m.task)
+	}
+	return m, nil
 }
 
 func (m DetailScreen) Task() *task.Task { return m.task }

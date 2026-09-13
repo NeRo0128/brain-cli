@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 
 	"github.com/NeRo0128/brain-cli/internal/core/task"
+	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -118,9 +119,7 @@ func (m MainScreen) Init() tea.Cmd {
 		return tasksLoadedMsg{tasks: tasks, err: err}
 	}
 }
-
-// Update maneja los mensajes.
-func (m MainScreen) Update(msg tea.Msg) (MainScreen, tea.Cmd) {
+func (m MainScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -134,11 +133,44 @@ func (m MainScreen) Update(msg tea.Msg) (MainScreen, tea.Cmd) {
 			m.setItems(msg.tasks)
 		}
 		return m, nil
+	case ReloadMsg:
+		m.loading = true
+		return m, m.Init()
+
+	case ActionMsg:
+		return m.handleAction(msg)
 	}
 
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
 	return m, cmd
+}
+
+func (m MainScreen) handleAction(msg ActionMsg) (ScreenI, tea.Cmd) {
+	switch msg.ID {
+	case keys.ActionExecute:
+		tk := m.SelectedTask()
+		if tk == nil {
+			return m, nil
+		}
+		return m, ExecuteTask(tk.ID, tk.Name)
+	case keys.EditNew:
+		return m, OpenForm(nil)
+	case keys.ViewDetail:
+		tk := m.SelectedTask()
+		if tk == nil {
+			return m, nil
+		}
+		return m, OpenDetail(tk)
+
+	case keys.ViewHistory:
+		return m, OpenHistory()
+
+	case keys.ViewHelp:
+		return m, OpenHelp()
+
+	}
+	return m, nil
 }
 
 // setItems pobla la lista con las tasks.
@@ -181,4 +213,14 @@ func (m MainScreen) View() string {
 	)
 
 	return header + "\n\n" + m.list.View() + "\n" + help
+}
+
+func (m MainScreen) Keys() []string {
+	return []string{
+		keys.ActionExecute,
+		keys.ViewDetail,
+		keys.ViewHistory,
+		keys.EditNew,
+		keys.ViewHelp,
+	}
 }

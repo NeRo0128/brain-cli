@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/NeRo0128/brain-cli/internal/core/execution"
+	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
 
@@ -33,8 +34,20 @@ func NewResultScreen(taskName string, exec *execution.Execution) ResultScreen {
 
 func (m ResultScreen) Init() tea.Cmd { return nil }
 
-func (m ResultScreen) Update(msg tea.Msg) (ResultScreen, tea.Cmd) {
+func (m ResultScreen) Keys() []string {
+	return []string{keys.NavBack, keys.ViewHelp}
+}
+
+// REEMPLAZA Update:
+func (m ResultScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
+	case ActionMsg:
+		switch msg.ID {
+		case keys.NavBack:
+			return m, Back()
+		case keys.ViewHelp:
+			return m, OpenHelp()
+		}
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "up", "k":

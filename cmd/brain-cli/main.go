@@ -11,6 +11,7 @@ import (
 	"github.com/NeRo0128/brain-cli/internal/adapters/database/repositories"
 	"github.com/NeRo0128/brain-cli/internal/adapters/executor"
 	"github.com/NeRo0128/brain-cli/internal/ui"
+	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/screens"
 	taskEsxec "github.com/NeRo0128/brain-cli/internal/usecases/task"
 	"github.com/NeRo0128/brain-cli/pkg/utils"
@@ -77,25 +78,40 @@ func main() {
 	execRepo := repositories.NewExecutionRepository(db.DB())
 
 	// 5. Use case: la factory de executors se inyecta como función.
-	//    El use case NO importa adapters/executor.
 	executorUC := taskEsxec.NewExecutor(taskRepo, toolRepo, execRepo, executor.New)
+	managerUC := taskEsxec.NewManager(taskRepo, toolRepo)
+
+	//  * KeyMap
+	keyRegistry := keys.New(nil)
 
 	// * UI
 
 	log.Info().
 		Msg("Brain CLI iniciando")
-	mainScreen := screens.NewMainScreen(Version, cfg.App.Name, taskRepo)
-	m := ui.NewModels(
-		Version,
-		cfg,
-		executorUC,
-		taskRepo,
-		toolRepo,
-		execRepo,
-		mainScreen,
-		log,
+
+	deps := ui.Deps{
+		Version:  Version,
+		Cfg:      cfg,
+		ExecUC:   executorUC,
+		TaskRepo: taskRepo,
+		ToolRepo: toolRepo,
+		ExecRepo: execRepo,
+		Keys:     keyRegistry,
+		Log:      log,
+		Manager:  managerUC,
+	}
+
+	p := tea.NewProgram(
+		ui.NewModels(
+			deps,
+			screens.NewMainScreen(
+				Version,
+				cfg.App.Name,
+				taskRepo,
+			),
+		),
+		tea.WithAltScreen(),
 	)
-	p := tea.NewProgram(m, tea.WithAltScreen())
 
 	if _, err := p.Run(); err != nil {
 		log.Fatal().Err(err).Msg("Fallo la TUI")

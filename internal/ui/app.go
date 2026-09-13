@@ -5,28 +5,202 @@ import (
 	"fmt"
 	"time"
 
-	coreConfig "github.com/NeRo0128/brain-cli/internal/core/config"
 	"github.com/NeRo0128/brain-cli/internal/core/execution"
-	coreTask "github.com/NeRo0128/brain-cli/internal/core/task"
-	"github.com/NeRo0128/brain-cli/internal/core/tool"
+	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/screens"
-	usercTask "github.com/NeRo0128/brain-cli/internal/usecases/task"
+
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/rs/zerolog"
 )
 
-// view identifica la pantalla activa.
-type view int
-
+// devMinExecutingDisplay es un delay solo-dev para que el spinner sea visible.
 const devMinExecutingDisplay = 0 * time.Second
 
-const (
-	viewMain view = iota
-	viewDetails
-	viewExecuting
-	viewHistory
-	viewResult
-)
+type Model struct {
+	deps  Deps
+	stack []screens.ScreenI
+
+	width, height int
+	executing     bool
+	cancelExec    context.CancelFunc
+	execErr       error
+}
+
+func NewModels(deps Deps, initial screens.ScreenI) Model {
+	return Model{
+		deps:  deps,
+		stack: []screens.ScreenI{initial},
+	}
+}
+
+// Init arranca la aplicación.
+func (m Model) Init() tea.Cmd { return m.top().Init() }
+
+func (m *Model) top() screens.ScreenI     { return m.stack[len(m.stack)-1] }
+func (m *Model) setTop(s screens.ScreenI) { m.stack[len(m.stack)-1] = s }
+
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// --- 0. Navegación interna ---
+	switch msg := msg.(type) {
+	case pushMsg:
+		m.stack = append(m.stack, msg.screen)
+		return m, tea.WindowSize()
+	case popMsg:
+		if len(m.stack) > 1 {
+			m.stack = m.stack[:len(m.stack)-1]
+		}
+		return m, nil
+	case replaceMsg:
+		m.setTop(msg.screen)
+		return m, tea.WindowSize()
+	}
+
+	// --- 1. Navegación desde screens ---
+	switch msg := msg.(type) {
+	case screens.BackMsg:
+		if len(m.stack) > 1 {
+			m.stack = m.stack[:len(m.stack)-1]
+		}
+		return m, nil
+	case screens.OpenDetailMsg:
+		d := screens.NewDetailScreen(msg.Task, m.deps.ToolRepo, m.deps.Log)
+		return m, tea.Batch(push(d), d.Init())
+	case screens.OpenHistoryMsg:
+		h := screens.NewHistoryScreen(m.deps.ExecRepo, m.deps.TaskRepo)
+		return m, tea.Batch(push(h), h.Init())
+	case screens.OpenResultMsg:
+		r := screens.NewResultScreen(msg.TaskName, msg.Exec)
+		return m, replace(r)
+	case screens.OpenFormMsg:
+		f := screens.NewFormScreen(msg.Task, m.deps.Manager, m.deps.Log)
+		return m, tea.Batch(push(f), f.Init())
+	case screens.ReloadMsg:
+		top := m.top()
+		newTop, cmd := top.Update(msg)
+		m.setTop(newTop)
+		return m, cmd
+	case screens.OpenHelpMsg:
+		h := screens.NewHelpScreen(m.currentKeyMap())
+		return m, tea.Batch(push(h), h.Init())
+	case screens.ExecuteTaskMsg:
+		return m.startExecution(msg)
+	case executionFinishedMsg:
+		return m.handleExecutionFinished(msg)
+	}
+
+	// --- 2. Teclas globales ---
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "ctrl+c":
+			if m.cancelExec != nil {
+				m.cancelExec()
+			}
+			return m, tea.Quit
+		case "q":
+			if !m.executing {
+				return m, tea.Quit
+			}
+			return m, nil
+		case "esc":
+			if m.executing && m.cancelExec != nil {
+				m.cancelExec()
+				m.cancelExec = nil
+				m.executing = false
+				if ex, ok := m.top().(screens.ExecutingScreen); ok {
+					m.setTop(ex.MarkCanceling())
+				}
+				return m, nil
+			}
+		}
+	}
+
+	// --- 3. Traducir KeyMsg → ActionMsg ---
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		top := m.top()
+		for _, id := range top.Keys() {
+			if m.deps.Keys.Matches(id, keyMsg.String()) {
+				msg = screens.ActionMsg{ID: id}
+				break
+			}
+		}
+	}
+
+	// --- 4. Delegar al top ---
+	top := m.top()
+	newTop, cmd := top.Update(msg)
+	m.setTop(newTop)
+	return m, cmd
+}
+
+func (m Model) startExecution(msg screens.ExecuteTaskMsg) (tea.Model, tea.Cmd) {
+	ctx, cancel := context.WithCancel(context.Background())
+	m.cancelExec = cancel
+	m.executing = true
+
+	ex := screens.NewExecutingScreen(msg.TaskName)
+	m.stack = append(m.stack, ex)
+
+	return m, tea.Batch(
+		tea.WindowSize(),
+		ex.Init(),
+		m.runTask(ctx, msg.TaskID, msg.TaskName),
+	)
+}
+
+func (m Model) handleExecutionFinished(msg executionFinishedMsg) (tea.Model, tea.Cmd) {
+	m.cancelExec = nil
+	m.executing = false
+
+	if msg.err != nil {
+		m.execErr = msg.err
+		if len(m.stack) > 1 {
+			m.stack = m.stack[:len(m.stack)-1]
+		}
+		return m, nil
+	}
+
+	// Reemplazar executing por result
+	r := screens.NewResultScreen(msg.taskName, msg.exec)
+	m.setTop(r)
+	return m, r.Init()
+}
+
+func (m Model) runTask(ctx context.Context, taskID, taskName string) tea.Cmd {
+	execUC := m.deps.ExecUC
+	log := m.deps.Log
+	return func() tea.Msg {
+		start := time.Now()
+		log.Debug().Str("task_id", taskID).Msg("runTask: iniciando")
+
+		exec, err := execUC.Execute(ctx, taskID)
+
+		if remaining := devMinExecutingDisplay - time.Since(start); remaining > 0 {
+			select {
+			case <-time.After(remaining):
+			case <-ctx.Done():
+			}
+		}
+
+		log.Debug().Err(err).Bool("has_exec", exec != nil).Msg("runTask: terminado")
+		return executionFinishedMsg{taskName: taskName, exec: exec, err: err}
+	}
+}
+
+// currentKeyMap combina las teclas globales + las del top para el help.
+func (m Model) currentKeyMap() keys.KeyMap {
+	ids := append([]string{}, m.top().Keys()...)
+	return keys.NewKeyMap(m.deps.Keys, ids)
+}
+
+func (m Model) View() string {
+	if m.execErr != nil {
+		return m.renderError()
+	}
+	return m.top().View()
+}
+
+func (m Model) renderError() string {
+	return fmt.Sprintf("\n\n  ✗ Error: %v\n\n  Pulsa cualquier tecla para volver\n", m.execErr)
+}
 
 // executionFinishedMsg transporta el resultado de la ejecución.
 type executionFinishedMsg struct {
@@ -35,248 +209,16 @@ type executionFinishedMsg struct {
 	err      error
 }
 
-// Model es el modelo raíz de la aplicación.
-// Contiene las pantallas y el estado global.
-type Model struct {
-	version  string
-	cfg      *coreConfig.Config
-	execUC   *usercTask.Executor
-	toolRepo tool.Repository
-	execRepo execution.Repository
-	taskRepo coreTask.Repository
-	active   view
-	log      zerolog.Logger
+// --- helpers de push/pop/replace ---
 
-	// Pantallas
-	main      screens.MainScreen
-	details   screens.DetailScreen
-	executing screens.ExecutingScreen
-	result    screens.ResultScreen
-	history   screens.HistoryScreen
-
-	// Estado de ejecución en curso
-	cancelExec context.CancelFunc
-	execErr    error
-
-	resultParent view // resultParent: a dónde vuelve Esc desde viewResult.
+func push(s screens.ScreenI) tea.Cmd {
+	return func() tea.Msg { return pushMsg{screen: s} }
+}
+func pop() tea.Cmd { return func() tea.Msg { return popMsg{} } }
+func replace(s screens.ScreenI) tea.Cmd {
+	return func() tea.Msg { return replaceMsg{screen: s} }
 }
 
-// NewModels construye el modelo raíz con todas sus dependencias.
-func NewModels(
-	version string,
-	cfg *coreConfig.Config,
-	execUC *usercTask.Executor,
-	taskRepo coreTask.Repository,
-	toolRepo tool.Repository,
-	execRepo execution.Repository,
-	mainScreen screens.MainScreen,
-	log zerolog.Logger,
-) Model {
-	return Model{
-		version:  version,
-		cfg:      cfg,
-		execUC:   execUC,
-		toolRepo: toolRepo,
-		taskRepo: taskRepo,
-		execRepo: execRepo,
-		active:   viewMain,
-		main:     mainScreen,
-		log:      log.With().Str("component", "ui").Logger(),
-	}
-}
-
-// Init arranca la aplicación.
-func (m Model) Init() tea.Cmd { return m.main.Init() }
-
-// Update maneja mensajes globales y delega a la pantalla activa.
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "q":
-			if m.active != viewExecuting {
-				return m, tea.Quit
-			}
-		case "ctrl+c":
-			if m.cancelExec != nil {
-				m.cancelExec()
-			}
-			return m, tea.Quit
-		case "esc":
-			switch m.active {
-			case viewExecuting:
-				if m.cancelExec != nil {
-					m.log.Info().Msg("cancelando ejecución")
-					m.cancelExec()
-					m.cancelExec = nil
-					m.executing = m.executing.MarkCanceling()
-				}
-				return m, nil
-			default:
-				m.log.Debug().Msg("esc → volviendo a main")
-				m.active = viewMain
-				return m, nil
-
-			}
-		case "d":
-			if m.active == viewMain {
-				tk := m.main.SelectedTask()
-				if tk == nil {
-					m.log.Warn().Msg("no hay task seleccionada")
-					return m, nil
-				}
-				m.log.Debug().Str("task_id", tk.ID).Msg("abriendo detalle")
-				m.details = screens.NewDetailScreen(tk, m.toolRepo, m.log)
-				m.active = viewDetails
-				return m, m.details.Init()
-			}
-		case "h":
-			switch m.active {
-			case viewMain:
-				m.history = screens.NewHistoryScreen(m.execRepo, m.taskRepo)
-				m.active = viewHistory
-				return m, m.history.Init()
-			case viewHistory:
-				m.active = viewMain
-				return m, nil
-			}
-		case "enter", "e":
-			switch m.active {
-			case viewMain, viewDetails, viewHistory:
-				if cmd := m.tryExecute(); cmd != nil {
-					return m, cmd
-				}
-			}
-		}
-
-	case executionFinishedMsg:
-		m.log.Debug().
-			Err(msg.err).
-			Bool("has_exec", msg.exec != nil).
-			Msg("executionFinishedMsg recibido")
-		m.cancelExec = nil
-		if msg.err != nil {
-			m.execErr = msg.err
-			m.active = viewMain
-			return m, nil
-		}
-		m.result = screens.NewResultScreen(msg.taskName, msg.exec)
-		m.active = viewResult
-		return m, nil
-	}
-
-	var cmd tea.Cmd
-	switch m.active {
-	case viewMain:
-		m.main, cmd = m.main.Update(msg)
-	case viewResult:
-		m.result, cmd = m.result.Update(msg)
-	case viewExecuting:
-		m.executing, cmd = m.executing.Update(msg)
-	case viewDetails:
-		m.details, cmd = m.details.Update(msg)
-	case viewHistory:
-		m.history, cmd = m.history.Update(msg)
-	}
-	return m, cmd
-}
-
-// tryExecute intenta lanzar la ejecución de la task seleccionada.
-// Devuelve nil si no hay nada que ejecutar (o ya hay una en curso).
-func (m *Model) tryExecute() tea.Cmd {
-	var tk *coreTask.Task
-	switch m.active {
-	case viewMain:
-		tk = m.main.SelectedTask()
-	case viewDetails:
-		tk = m.details.Task()
-	}
-	if tk == nil || m.active == viewExecuting {
-		return nil
-	}
-
-	// Creamos el ctx y guardamos el cancel en el modelo.
-	ctx, cancel := context.WithCancel(context.Background())
-	m.cancelExec = cancel
-	m.resultParent = m.active
-	m.executing = screens.NewExecutingScreen(tk.Name)
-	m.active = viewExecuting
-
-	m.log.Debug().Str("task_id", tk.ID).Msg("ejecutando")
-
-	return tea.Batch(
-		m.executing.Init(),
-		m.runTask(ctx, tk.ID, tk.Name),
-	)
-}
-
-// runTask dispara la ejecución en background y devuelve el resultado.
-func (m Model) runTask(ctx context.Context, taskID, taskName string) tea.Cmd {
-	execUC := m.execUC
-	log := m.log
-	return func() tea.Msg {
-		start := time.Now()
-		log.Debug().Str("task_id", taskID).Msg("runTask: iniciando")
-
-		exec, err := execUC.Execute(ctx, taskID)
-
-		// FIXME: mantener el spinner visible al menos N segundos (solo dev).
-		// Si el usuario canceló, salimos inmediatamente.
-		if remaining := devMinExecutingDisplay - time.Since(start); remaining > 0 {
-			select {
-			case <-time.After(remaining):
-			case <-ctx.Done():
-				// ctx cancelado → no esperamos
-			}
-		}
-
-		log.Debug().Err(err).Bool("has_exec", exec != nil).Msg("runTask: terminado")
-		return executionFinishedMsg{
-			taskName: taskName,
-			exec:     exec,
-			err:      err,
-		}
-	}
-}
-
-func (m Model) View() string {
-	if m.execErr != nil {
-		return m.renderError()
-	}
-	switch m.active {
-	case viewDetails:
-		return m.details.View()
-	case viewExecuting:
-		return m.executing.View()
-	case viewResult:
-		return m.result.View()
-	case viewHistory:
-		return m.history.View()
-	default:
-		return m.main.View()
-	}
-}
-
-func (m Model) renderExecuting() string {
-	return "\n\n  ⏳ Ejecutando... (Ctrl+C para cancelar)\n"
-}
-
-func (m Model) renderError() string {
-	return fmt.Sprintf("\n\n  ✗ Error: %v\n\n  Esc para volver\n", m.execErr)
-}
-
-func viewName(v view) string {
-	switch v {
-	case viewMain:
-		return "main"
-	case viewDetails:
-		return "details"
-	case viewExecuting:
-		return "executing"
-	case viewResult:
-		return "result"
-	case viewHistory:
-		return "history"
-	}
-	return "unknown"
-}
+type pushMsg struct{ screen screens.ScreenI }
+type popMsg struct{}
+type replaceMsg struct{ screen screens.ScreenI }
