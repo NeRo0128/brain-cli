@@ -2,6 +2,7 @@ package screens
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"time"
 
@@ -52,7 +53,7 @@ var fieldOrder = []fieldID{
 
 // FormScreen edita o crea una Task.
 type FormScreen struct {
-	editing *coretask.Task // nil = crear
+	editing *coretask.Task
 
 	idInput     textinput.Model
 	nameInput   textinput.Model
@@ -65,7 +66,7 @@ type FormScreen struct {
 	isActive bool
 	isFav    bool
 
-	focus int // índice en visibleFields()
+	focus int
 
 	err    error
 	saving bool
@@ -86,26 +87,36 @@ func NewFormScreen(tk *coretask.Task, manager *taskuc.Manager, log zerolog.Logge
 	screenLog := log.With().Str("screen", "form").Str("action", action).Logger()
 
 	f := FormScreen{
-		editing: tk,
-		manager: manager,
-		log:     screenLog,
+		editing:  tk,
+		manager:  manager,
+		log:      screenLog,
+		typ:      coretask.TaskTypeAI,
+		priority: coretask.PriorityMedium,
+		isActive: true,
+		isFav:    false,
 	}
 
-	f.idInput = newInput("wifi-vpn", 40)
-	f.nameInput = newInput("Conectar WiFi", 60)
+	f.idInput = newInput("mi-task", 40)
+	f.nameInput = newInput("Nombre de la task", 60)
 	f.descInput = newInput("Descripción opcional...", 80)
+	f.toolInput = newInput("ID del tool (ej: 1)", 10)
 	f.promptInput = newInput("Prompt para la IA...", 100)
 
 	if tk != nil {
 		f.idInput.SetValue(tk.ID)
-		f.idInput.Blur() // el ID no se edita
 		f.nameInput.SetValue(tk.Name)
 		f.descInput.SetValue(tk.Description)
 		f.promptInput.SetValue(tk.AIPrompt)
-		f.focus = 1 // empezar en Name
+		f.typ = tk.Type
+		f.priority = tk.Priority
+		f.isActive = tk.IsActive
+		f.isFav = tk.IsFavorite
+		if tk.ToolID != nil {
+			f.toolInput.SetValue(strconv.Itoa(*tk.ToolID))
+		}
 	}
 
-	f.updateFocus()
+	f.applyFocus()
 	return f
 }
 
@@ -132,7 +143,6 @@ func (m FormScreen) Keys() []string {
 		keys.ViewHelp,
 	}
 }
-
 func (m FormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -147,19 +157,7 @@ func (m FormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 			return m, nil
 		}
 		m.log.Info().Bool("created", msg.created).Msg("task guardada")
-		return m, tea.Batch(Back(), Reload())
-
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "tab":
-			m.focus = (m.focus + 1) % len(m.inputs())
-			m.updateFocus()
-			return m, nil
-		case "shift+tab":
-			m.focus = (m.focus - 1 + len(m.inputs())) % len(m.inputs())
-			m.updateFocus()
-			return m, nil
-		}
+		return m, FormSaved()
 
 	case ActionMsg:
 		switch msg.ID {
@@ -170,15 +168,70 @@ func (m FormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 		case keys.ViewHelp:
 			return m, OpenHelp()
 		}
+		return m, nil
+
+	case tea.KeyMsg:
+		return m.handleKey(msg)
 	}
 
-	// Delegar al input activo
-	var cmd tea.Cmd
-	inputs := m.inputsPtr()
-	*inputs[m.focus], cmd = inputs[m.focus].Update(msg)
-	return m, cmd
+	// Otros mensajes (BlinkMsg, etc.) → delegar al textinput activo
+	return m.delegateToInput(msg)
+}
+func (m FormScreen) handleKey(msg tea.KeyMsg) (ScreenI, tea.Cmd) {
+	fields := m.visibleFields()
+	if len(fields) == 0 {
+		return m, nil
+	}
+
+	switch msg.String() {
+	case "tab":
+		m.focus = (m.focus + 1) % len(fields)
+		m.applyFocus()
+		return m, nil
+	case "shift+tab":
+		m.focus = (m.focus - 1 + len(fields)) % len(fields)
+		m.applyFocus()
+		return m, nil
+	case "left":
+		if m.currentKind() == kindSelect {
+			m.cycleSelect(-1)
+			return m, nil
+		}
+	case "right":
+		if m.currentKind() == kindSelect {
+			m.cycleSelect(+1)
+			return m, nil
+		}
+	case " ":
+		if m.currentKind() == kindToggle {
+			m.toggleCurrent()
+			return m, nil
+		}
+	}
+
+	if m.currentKind() == kindText {
+		return m.delegateToInput(msg)
+	}
+	return m, nil
 }
 
+// delegateToInput pasa el mensaje al textinput activo.
+func (m FormScreen) delegateToInput(msg tea.Msg) (ScreenI, tea.Cmd) {
+	var cmd tea.Cmd
+	switch m.currentField() {
+	case fID:
+		m.idInput, cmd = m.idInput.Update(msg)
+	case fName:
+		m.nameInput, cmd = m.nameInput.Update(msg)
+	case fDesc:
+		m.descInput, cmd = m.descInput.Update(msg)
+	case fTool:
+		m.toolInput, cmd = m.toolInput.Update(msg)
+	case fPrompt:
+		m.promptInput, cmd = m.promptInput.Update(msg)
+	}
+	return m, cmd
+}
 func (m FormScreen) View() string {
 	title := "➕ Nueva tarea"
 	if m.editing != nil {
@@ -188,65 +241,225 @@ func (m FormScreen) View() string {
 	b.WriteString(styles.Title.Render(title))
 	b.WriteString("\n\n")
 
-	labels := []string{"ID", "Nombre", "Descripción", "Prompt IA"}
-	inputs := m.inputs()
-	for i, in := range inputs {
-		label := labels[i]
-		cursor := "  "
-		if i == m.focus {
-			cursor = "▶ "
-			label = styles.Key.Render(label)
-		} else {
-			label = styles.Subtitle.Render(label)
-		}
-		b.WriteString(cursor)
-		b.WriteString(label)
-		b.WriteString("\n")
-		b.WriteString("   ")
-		b.WriteString(in.View())
+	// ID readonly en edición
+	if m.editing != nil {
+		b.WriteString("  ")
+		b.WriteString(styles.Subtitle.Render("ID: "))
+		b.WriteString(m.editing.ID)
 		b.WriteString("\n\n")
+	}
+
+	for i, id := range m.visibleFields() {
+		b.WriteString(m.renderField(id, i == m.focus))
 	}
 
 	if m.saving {
-		b.WriteString(styles.Subtitle.Render("  Guardando..."))
-		b.WriteString("\n\n")
+		b.WriteString("\n  ")
+		b.WriteString(styles.Subtitle.Render("Guardando..."))
 	}
 	if m.err != nil {
-		b.WriteString("  ")
+		b.WriteString("\n  ")
 		b.WriteString(styles.ErrorStyle.Render("✗ "))
 		b.WriteString(m.err.Error())
-		b.WriteString("\n\n")
 	}
 
+	b.WriteString("\n\n")
 	b.WriteString(styles.Help.Render(
 		styles.Key.Render("Tab") + " siguiente  ·  " +
-			styles.Key.Render("Shift+Tab") + " anterior  ·  " +
+			styles.Key.Render("←/→") + " cambiar  ·  " +
+			styles.Key.Render("Space") + " alternar  ·  " +
 			styles.Key.Render("Ctrl+S") + " guardar  ·  " +
 			styles.Key.Render("Esc") + " cancelar",
 	))
 	return b.String()
 }
 
-// --- helpers ---
+func (m FormScreen) renderField(id fieldID, focused bool) string {
+	cursor := "  "
+	if focused {
+		cursor = "▶ "
+	}
 
-func (m FormScreen) inputs() []textinput.Model {
-	return []textinput.Model{m.idInput, m.nameInput, m.descInput, m.promptInput}
+	label := m.labelFor(id)
+	labelStyle := styles.Subtitle
+	if focused {
+		labelStyle = styles.Key
+	}
+
+	var value string
+	switch id {
+	case fID:
+		value = m.idInput.View()
+	case fName:
+		value = m.nameInput.View()
+	case fDesc:
+		value = m.descInput.View()
+	case fTool:
+		value = m.toolInput.View()
+	case fPrompt:
+		value = m.promptInput.View()
+	case fType:
+		value = renderSelect(string(m.typ), focused)
+	case fPriority:
+		value = renderSelect(string(m.priority), focused)
+	case fActive:
+		value = renderToggle(m.isActive, focused)
+	case fFavorite:
+		value = renderToggle(m.isFav, focused)
+	}
+
+	return cursor + labelStyle.Render(label) + "\n   " + value + "\n\n"
 }
 
-func (m FormScreen) inputsPtr() []*textinput.Model {
-	return []*textinput.Model{&m.idInput, &m.nameInput, &m.descInput, &m.promptInput}
+func (m FormScreen) labelFor(id fieldID) string {
+	switch id {
+	case fID:
+		return "ID"
+	case fName:
+		return "Nombre"
+	case fDesc:
+		return "Descripción"
+	case fType:
+		return "Tipo"
+	case fPriority:
+		return "Prioridad"
+	case fTool:
+		return "Tool ID"
+	case fPrompt:
+		return "Prompt IA"
+	case fActive:
+		return "Activa"
+	case fFavorite:
+		return "Favorita"
+	}
+	return string(id)
 }
 
-// updateFocus aplica Focus() al input activo y Blur() al resto.
-func (m *FormScreen) updateFocus() {
-	for i, in := range m.inputsPtr() {
-		if i == m.focus {
-			in.Focus()
-		} else {
-			in.Blur()
+func renderSelect(value string, focused bool) string {
+	if focused {
+		return styles.Key.Render("◀ ") + value + styles.Key.Render(" ▶")
+	}
+	return styles.Subtitle.Render("  " + value + "  ")
+}
+
+func renderToggle(on bool, focused bool) string {
+	mark := "[ ]"
+	if on {
+		mark = "[x]"
+	}
+	if focused {
+		return styles.Key.Render(mark)
+	}
+	return styles.Subtitle.Render(mark)
+}
+
+// --- field traversal ---
+
+func (m FormScreen) visibleFields() []fieldID {
+	out := make([]fieldID, 0, len(fieldOrder))
+	for _, id := range fieldOrder {
+		if m.fieldVisible(id) {
+			out = append(out, id)
 		}
 	}
+	return out
 }
+
+func (m FormScreen) fieldVisible(id fieldID) bool {
+	// ID no se edita: oculto en modo edición
+	if id == fID && m.editing != nil {
+		return false
+	}
+	switch id {
+	case fTool:
+		return m.typ == coretask.TaskTypeScript || m.typ == coretask.TaskTypeCommand
+	case fPrompt:
+		return m.typ == coretask.TaskTypeAI
+	}
+	return true
+}
+
+func (m FormScreen) currentField() fieldID {
+	fields := m.visibleFields()
+	if m.focus >= len(fields) {
+		return ""
+	}
+	return fields[m.focus]
+}
+
+func (m FormScreen) currentKind() fieldKind {
+	switch m.currentField() {
+	case fType, fPriority:
+		return kindSelect
+	case fActive, fFavorite:
+		return kindToggle
+	default:
+		return kindText
+	}
+}
+
+func (m *FormScreen) applyFocus() {
+	m.idInput.Blur()
+	m.nameInput.Blur()
+	m.descInput.Blur()
+	m.toolInput.Blur()
+	m.promptInput.Blur()
+
+	switch m.currentField() {
+	case fID:
+		m.idInput.Focus()
+	case fName:
+		m.nameInput.Focus()
+	case fDesc:
+		m.descInput.Focus()
+	case fTool:
+		m.toolInput.Focus()
+	case fPrompt:
+		m.promptInput.Focus()
+	}
+}
+
+func (m *FormScreen) cycleSelect(dir int) {
+	switch m.currentField() {
+	case fType:
+		opts := []coretask.TaskType{
+			coretask.TaskTypeAI,
+			coretask.TaskTypeScript,
+			coretask.TaskTypeCommand,
+		}
+		m.typ = cycleTaskType(opts, m.typ, dir)
+		m.clampFocus()
+	case fPriority:
+		opts := []coretask.Priority{
+			coretask.PriorityLow,
+			coretask.PriorityMedium,
+			coretask.PriorityHigh,
+		}
+		m.priority = cyclePriority(opts, m.priority, dir)
+	}
+}
+
+func (m *FormScreen) toggleCurrent() {
+	switch m.currentField() {
+	case fActive:
+		m.isActive = !m.isActive
+	case fFavorite:
+		m.isFav = !m.isFav
+	}
+}
+
+func (m *FormScreen) clampFocus() {
+	n := len(m.visibleFields())
+	if n == 0 {
+		m.focus = 0
+		return
+	}
+	if m.focus >= n {
+		m.focus = n - 1
+	}
+}
+
+// --- save ---
 
 func (m FormScreen) save() (ScreenI, tea.Cmd) {
 	if m.saving {
@@ -255,20 +468,11 @@ func (m FormScreen) save() (ScreenI, tea.Cmd) {
 	m.saving = true
 	m.err = nil
 
-	in := taskuc.TaskInput{
-		ID:          strings.TrimSpace(m.idInput.Value()),
-		Name:        strings.TrimSpace(m.nameInput.Value()),
-		Description: strings.TrimSpace(m.descInput.Value()),
-		Type:        coretask.TaskTypeAI,
-		RequiresAI:  true,
-		AIPrompt:    strings.TrimSpace(m.promptInput.Value()),
-		Priority:    coretask.PriorityMedium,
-		IsActive:    true,
-	}
-
+	in := m.buildInput()
 	editing := m.editing
 	mgr := m.manager
 	log := m.log
+
 	return m, func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -282,4 +486,52 @@ func (m FormScreen) save() (ScreenI, tea.Cmd) {
 		_, err := mgr.Create(ctx, in)
 		return saveDoneMsg{created: true, err: err}
 	}
+}
+
+func (m FormScreen) buildInput() taskuc.TaskInput {
+	in := taskuc.TaskInput{
+		ID:          strings.TrimSpace(m.idInput.Value()),
+		Name:        strings.TrimSpace(m.nameInput.Value()),
+		Description: strings.TrimSpace(m.descInput.Value()),
+		Type:        m.typ,
+		Priority:    m.priority,
+		IsActive:    m.isActive,
+		IsFavorite:  m.isFav,
+	}
+	if m.editing != nil {
+		in.ID = m.editing.ID
+	}
+
+	switch m.typ {
+	case coretask.TaskTypeAI:
+		in.RequiresAI = true
+		in.AIPrompt = strings.TrimSpace(m.promptInput.Value())
+	default:
+		if v := strings.TrimSpace(m.toolInput.Value()); v != "" {
+			if id, err := strconv.Atoi(v); err == nil {
+				in.ToolID = &id
+			}
+		}
+	}
+	return in
+}
+
+// --- helpers de ciclo ---
+
+func cycleTaskType(opts []coretask.TaskType, current coretask.TaskType, dir int) coretask.TaskType {
+	for i, o := range opts {
+		if o == current {
+			return opts[(i+dir+len(opts))%len(opts)]
+		}
+	}
+	return opts[0]
+}
+
+func cyclePriority(opts []coretask.Priority, current coretask.Priority, dir int) coretask.Priority {
+	for i, o := range opts {
+		if o == current {
+			return opts[(i+dir+len(opts))%len(opts)]
+		}
+	}
+	return opts[1] // medium por defecto
 }

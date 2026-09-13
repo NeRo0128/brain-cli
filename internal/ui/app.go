@@ -85,6 +85,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.startExecution(msg)
 	case executionFinishedMsg:
 		return m.handleExecutionFinished(msg)
+	case screens.FormSavedMsg:
+		// Pop del form y reload del nuevo top
+		if len(m.stack) > 1 {
+			m.stack = m.stack[:len(m.stack)-1]
+		}
+		newTop, cmd := m.top().Update(screens.ReloadMsg{})
+		m.setTop(newTop)
+		return m, cmd
 	}
 
 	// --- 2. Teclas globales ---

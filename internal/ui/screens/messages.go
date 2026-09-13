@@ -69,3 +69,11 @@ func OpenForm(t *coretask.Task) tea.Cmd {
 func Reload() tea.Cmd {
 	return func() tea.Msg { return ReloadMsg{} }
 }
+
+// FormSavedMsg se emite tras guardar con éxito.
+// El Model pop-ea el form y envía ReloadMsg al nuevo top.
+type FormSavedMsg struct{}
+
+func FormSaved() tea.Cmd {
+	return func() tea.Msg { return FormSavedMsg{} }
+}
