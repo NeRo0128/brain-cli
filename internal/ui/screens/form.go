@@ -2,39 +2,46 @@ package screens
 
 import (
 	"context"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/rs/zerolog"
 
 	coretask "github.com/NeRo0128/brain-cli/internal/core/task"
+	"github.com/NeRo0128/brain-cli/internal/core/tool"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 	taskuc "github.com/NeRo0128/brain-cli/internal/usecases/task"
 )
 
-// saveDoneMsg se emite al terminar de guardar.
 type saveDoneMsg struct {
 	created bool
 	err     error
 }
 
-// fieldID identifica un campo del form.
+type toolLoadedForFormMsg struct {
+	tool *tool.Tool
+	err  error
+}
+
 type fieldID string
 
 const (
-	fID       fieldID = "id"
-	fName     fieldID = "name"
-	fDesc     fieldID = "desc"
-	fType     fieldID = "type"
-	fPriority fieldID = "priority"
-	fTool     fieldID = "tool"
-	fPrompt   fieldID = "prompt"
-	fActive   fieldID = "active"
-	fFavorite fieldID = "favorite"
+	fID          fieldID = "id"
+	fName        fieldID = "name"
+	fDesc        fieldID = "desc"
+	fKind        fieldID = "kind"        // reemplaza fType
+	fInterpreter fieldID = "interpreter" // solo si kind=script
+	fTool        fieldID = "tool"        // solo si kind=script
+	fCommand     fieldID = "command"     // solo si kind=command
+	fPrompt      fieldID = "prompt"      // solo si kind=ai
+	fPriority    fieldID = "priority"
+	fActive      fieldID = "active"
+	fFavorite    fieldID = "favorite"
 )
 
 type fieldKind int
@@ -43,43 +50,53 @@ const (
 	kindText fieldKind = iota
 	kindSelect
 	kindToggle
+	kindButton
 )
 
-// fieldOrder es el orden canónico de todos los campos.
-// La visibilidad se decide en fieldVisible().
 var fieldOrder = []fieldID{
-	fID, fName, fDesc, fType, fPriority, fTool, fPrompt, fActive, fFavorite,
+	fID, fName, fDesc,
+	fKind, fInterpreter, fTool, fCommand, fPrompt,
+	fPriority, fActive, fFavorite,
 }
 
 // FormScreen edita o crea una Task.
 type FormScreen struct {
 	editing *coretask.Task
 
-	idInput     textinput.Model
-	nameInput   textinput.Model
-	descInput   textinput.Model
-	toolInput   textinput.Model
-	promptInput textinput.Model
+	idInput      textinput.Model
+	nameInput    textinput.Model
+	descInput    textinput.Model
+	commandInput textinput.Model //
+	promptInput  textarea.Model   // [S4a] prompt IA con múltiples líneas
 
-	typ      coretask.TaskType
-	priority coretask.Priority
-	isActive bool
-	isFav    bool
+	kind           coretask.TaskKind  //
+	interpreters   []tool.Interpreter // solo disponibles
+	interpreterIdx int                //
+	selectedTool   *tool.Tool
+	priority       coretask.Priority
+	isActive       bool
+	isFav          bool
 
 	focus int
 
 	err    error
 	saving bool
 
-	manager *taskuc.Manager
-	log     zerolog.Logger
+	manager  *taskuc.Manager
+	toolRepo tool.Repository
+	log      zerolog.Logger
 
 	width, height int
 }
 
-// NewFormScreen construye el form.
-// Si tk != nil, edita. Si tk == nil, crea.
-func NewFormScreen(tk *coretask.Task, manager *taskuc.Manager, log zerolog.Logger) FormScreen {
+// constructor recibe la lista de intérpretes
+func NewFormScreen(
+	tk *coretask.Task,
+	manager *taskuc.Manager,
+	toolRepo tool.Repository,
+	interpreters []tool.Interpreter,
+	log zerolog.Logger,
+) FormScreen {
 	action := "crear"
 	if tk != nil {
 		action = "editar"
@@ -87,32 +104,54 @@ func NewFormScreen(tk *coretask.Task, manager *taskuc.Manager, log zerolog.Logge
 	screenLog := log.With().Str("screen", "form").Str("action", action).Logger()
 
 	f := FormScreen{
-		editing:  tk,
-		manager:  manager,
-		log:      screenLog,
-		typ:      coretask.TaskTypeAI,
-		priority: coretask.PriorityMedium,
-		isActive: true,
-		isFav:    false,
+		editing:      tk,
+		manager:      manager,
+		toolRepo:     toolRepo,
+		interpreters: interpreters,
+		log:          screenLog,
+		kind:         coretask.KindAI,
+		priority:     coretask.PriorityMedium,
+		isActive:     true,
+		isFav:        false,
 	}
 
 	f.idInput = newInput("mi-task", 40)
 	f.nameInput = newInput("Nombre de la task", 60)
 	f.descInput = newInput("Descripción opcional...", 80)
-	f.toolInput = newInput("ID del tool (ej: 1)", 10)
-	f.promptInput = newInput("Prompt para la IA...", 100)
+	f.commandInput = newInput("docker ps -a", 80)
+
+	// [S4a] Textarea para el prompt IA: bloque multi-línea
+	ta := textarea.New()
+	ta.Placeholder = "Prompt para la IA..."
+	ta.SetWidth(60)
+	ta.SetHeight(5)
+	ta.ShowLineNumbers = false
+	ta.CharLimit = 8192
+	ta.FocusedStyle.Base = lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(styles.InputFocused).
+		Padding(0, 1)
+	ta.FocusedStyle.CursorLine = lipgloss.NewStyle()
+	ta.BlurredStyle.Base = lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(styles.InputBlurred).
+		Padding(0, 1)
+	ta.BlurredStyle.CursorLine = lipgloss.NewStyle()
+	f.promptInput = ta
 
 	if tk != nil {
 		f.idInput.SetValue(tk.ID)
 		f.nameInput.SetValue(tk.Name)
 		f.descInput.SetValue(tk.Description)
 		f.promptInput.SetValue(tk.AIPrompt)
-		f.typ = tk.Type
 		f.priority = tk.Priority
 		f.isActive = tk.IsActive
 		f.isFav = tk.IsFavorite
-		if tk.ToolID != nil {
-			f.toolInput.SetValue(strconv.Itoa(*tk.ToolID))
+		f.kind = coretask.TaskKindFromType(tk.Type)
+
+		// Si es script, buscar el intérprete que matchee el tool actual
+		if f.kind == coretask.KindScript && len(interpreters) > 0 {
+			f.interpreterIdx = 0 // se ajusta al cargar el tool
 		}
 	}
 
@@ -120,7 +159,6 @@ func NewFormScreen(tk *coretask.Task, manager *taskuc.Manager, log zerolog.Logge
 	return f
 }
 
-// newInput construye un textinput con estilo consistente.
 func newInput(placeholder string, width int) textinput.Model {
 	ti := textinput.New()
 	ti.Placeholder = placeholder
@@ -130,19 +168,29 @@ func newInput(placeholder string, width int) textinput.Model {
 }
 
 func (m FormScreen) Init() tea.Cmd {
-	return tea.Batch(
-		tea.WindowSize(),
-		textinput.Blink,
-	)
+	cmds := []tea.Cmd{tea.WindowSize(), textinput.Blink}
+
+	if m.editing != nil && m.editing.ToolID != nil {
+		repo := m.toolRepo
+		id := *m.editing.ToolID
+		log := m.log
+		loadTool := func() tea.Msg {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			tl, err := repo.GetByID(ctx, id)
+			log.Debug().Err(err).Int("tool_id", id).Msg("Init: tool cargado para form")
+			return toolLoadedForFormMsg{tool: tl, err: err}
+		}
+		cmds = append(cmds, loadTool)
+	}
+
+	return tea.Batch(cmds...)
 }
 
 func (m FormScreen) Keys() []string {
-	return []string{
-		keys.ActionSave,
-		keys.NavBack,
-		keys.ViewHelp,
-	}
+	return []string{keys.ActionSave, keys.NavBack, keys.ViewHelp}
 }
+
 func (m FormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -159,6 +207,19 @@ func (m FormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 		m.log.Info().Bool("created", msg.created).Msg("task guardada")
 		return m, FormSaved()
 
+	case toolLoadedForFormMsg:
+		if msg.err == nil {
+			m.selectedTool = msg.tool
+			m.syncInterpreterToTool()
+		}
+		return m, nil
+
+	case ToolSelectedMsg:
+		m.selectedTool = msg.Tool
+		m.syncInterpreterToTool()
+		m.log.Debug().Str("tool", msg.Tool.Name).Msg("tool seleccionado")
+		return m, nil
+
 	case ActionMsg:
 		switch msg.ID {
 		case keys.ActionSave:
@@ -174,9 +235,22 @@ func (m FormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 		return m.handleKey(msg)
 	}
 
-	// Otros mensajes (BlinkMsg, etc.) → delegar al textinput activo
 	return m.delegateToInput(msg)
 }
+
+// syncInterpreterToTool alinea interpreterIdx con el tool actual.
+func (m *FormScreen) syncInterpreterToTool() {
+	if m.selectedTool == nil {
+		return
+	}
+	for i, it := range m.interpreters {
+		if it.ScriptType == m.selectedTool.ScriptType {
+			m.interpreterIdx = i
+			return
+		}
+	}
+}
+
 func (m FormScreen) handleKey(msg tea.KeyMsg) (ScreenI, tea.Cmd) {
 	fields := m.visibleFields()
 	if len(fields) == 0 {
@@ -192,13 +266,24 @@ func (m FormScreen) handleKey(msg tea.KeyMsg) (ScreenI, tea.Cmd) {
 		m.focus = (m.focus - 1 + len(fields)) % len(fields)
 		m.applyFocus()
 		return m, nil
+	case "enter":
+		// Enter en fTool abre el picker filtrado
+		if m.currentField() == fTool {
+			var current *int
+			if m.selectedTool != nil {
+				current = &m.selectedTool.ID
+			}
+			return m, OpenToolPicker(current, m.currentScriptType())
+		}
 	case "left":
-		if m.currentKind() == kindSelect {
+		switch m.currentKind() {
+		case kindSelect:
 			m.cycleSelect(-1)
 			return m, nil
 		}
 	case "right":
-		if m.currentKind() == kindSelect {
+		switch m.currentKind() {
+		case kindSelect:
 			m.cycleSelect(+1)
 			return m, nil
 		}
@@ -215,7 +300,6 @@ func (m FormScreen) handleKey(msg tea.KeyMsg) (ScreenI, tea.Cmd) {
 	return m, nil
 }
 
-// delegateToInput pasa el mensaje al textinput activo.
 func (m FormScreen) delegateToInput(msg tea.Msg) (ScreenI, tea.Cmd) {
 	var cmd tea.Cmd
 	switch m.currentField() {
@@ -225,23 +309,20 @@ func (m FormScreen) delegateToInput(msg tea.Msg) (ScreenI, tea.Cmd) {
 		m.nameInput, cmd = m.nameInput.Update(msg)
 	case fDesc:
 		m.descInput, cmd = m.descInput.Update(msg)
-	case fTool:
-		m.toolInput, cmd = m.toolInput.Update(msg)
+	case fCommand:
+		m.commandInput, cmd = m.commandInput.Update(msg)
 	case fPrompt:
 		m.promptInput, cmd = m.promptInput.Update(msg)
 	}
 	return m, cmd
 }
-func (m FormScreen) View() string {
-	title := "➕ Nueva tarea"
-	if m.editing != nil {
-		title = "✏️  Editar tarea"
-	}
-	var b strings.Builder
-	b.WriteString(styles.Title.Render(title))
-	b.WriteString("\n\n")
 
-	// ID readonly en edición
+// View renderiza SOLO el contenido del medio.
+// [ACTUALIZADO] sin title ni footer propios.
+func (m FormScreen) View() string {
+	var b strings.Builder
+
+	// En modo edición, mostramos el ID como referencia (no editable).
 	if m.editing != nil {
 		b.WriteString("  ")
 		b.WriteString(styles.Subtitle.Render("ID: "))
@@ -249,7 +330,15 @@ func (m FormScreen) View() string {
 		b.WriteString("\n\n")
 	}
 
-	for i, id := range m.visibleFields() {
+	// [S4c] section dividers entre grupos de campos
+	currentSection := ""
+	fields := m.visibleFields()
+	for i, id := range fields {
+		sec := sectionFor(id)
+		if sec != "" && sec != currentSection {
+			b.WriteString(renderSectionDivider(sec))
+			currentSection = sec
+		}
 		b.WriteString(m.renderField(id, i == m.focus))
 	}
 
@@ -263,14 +352,6 @@ func (m FormScreen) View() string {
 		b.WriteString(m.err.Error())
 	}
 
-	b.WriteString("\n\n")
-	b.WriteString(styles.Help.Render(
-		styles.Key.Render("Tab") + " siguiente  ·  " +
-			styles.Key.Render("←/→") + " cambiar  ·  " +
-			styles.Key.Render("Space") + " alternar  ·  " +
-			styles.Key.Render("Ctrl+S") + " guardar  ·  " +
-			styles.Key.Render("Esc") + " cancelar",
-	))
 	return b.String()
 }
 
@@ -286,6 +367,12 @@ func (m FormScreen) renderField(id fieldID, focused bool) string {
 		labelStyle = styles.Key
 	}
 
+	// El textarea del prompt se renderiza en bloque multi-línea.
+	if id == fPrompt {
+		return cursor + labelStyle.Render(label) + "\n   " +
+			m.promptInput.View() + "\n\n"
+	}
+
 	var value string
 	switch id {
 	case fID:
@@ -294,21 +381,51 @@ func (m FormScreen) renderField(id fieldID, focused bool) string {
 		value = m.nameInput.View()
 	case fDesc:
 		value = m.descInput.View()
-	case fTool:
-		value = m.toolInput.View()
+	case fCommand:
+		value = m.commandInput.View()
 	case fPrompt:
 		value = m.promptInput.View()
-	case fType:
-		value = renderSelect(string(m.typ), focused)
+	case fKind:
+		value = renderSelect(string(m.kind), focused)
+	case fInterpreter:
+		value = m.renderInterpreterField(focused)
 	case fPriority:
 		value = renderSelect(string(m.priority), focused)
 	case fActive:
 		value = renderToggle(m.isActive, focused)
 	case fFavorite:
 		value = renderToggle(m.isFav, focused)
+	case fTool:
+		value = m.renderToolField(focused)
 	}
 
 	return cursor + labelStyle.Render(label) + "\n   " + value + "\n\n"
+}
+
+// renderInterpreterField: muestra el intérprete o warning si no hay.
+func (m FormScreen) renderInterpreterField(focused bool) string {
+	if len(m.interpreters) == 0 {
+		return styles.ErrorStyle.Render("⚠ No hay intérpretes instalados")
+	}
+	if focused {
+		return styles.Key.Render("◀ ") + m.interpreters[m.interpreterIdx].Display +
+			styles.Key.Render(" ▶")
+	}
+	return styles.Subtitle.Render("  " + m.interpreters[m.interpreterIdx].Display + "  ")
+}
+
+func (m FormScreen) renderToolField(focused bool) string {
+	if m.selectedTool == nil {
+		if focused {
+			return styles.Key.Render("[ Elegir tool... ]")
+		}
+		return styles.Subtitle.Render("[ Elegir tool... ]")
+	}
+	txt := "[" + m.selectedTool.Name + "]"
+	if focused {
+		return styles.Key.Render(txt)
+	}
+	return styles.Subtitle.Render(txt)
 }
 
 func (m FormScreen) labelFor(id fieldID) string {
@@ -319,14 +436,18 @@ func (m FormScreen) labelFor(id fieldID) string {
 		return "Nombre"
 	case fDesc:
 		return "Descripción"
-	case fType:
-		return "Tipo"
-	case fPriority:
-		return "Prioridad"
+	case fKind:
+		return "¿Qué quieres hacer?"
+	case fInterpreter:
+		return "Intérprete"
 	case fTool:
-		return "Tool ID"
+		return "Script"
+	case fCommand:
+		return "Comando"
 	case fPrompt:
 		return "Prompt IA"
+	case fPriority:
+		return "Prioridad"
 	case fActive:
 		return "Activa"
 	case fFavorite:
@@ -353,8 +474,7 @@ func renderToggle(on bool, focused bool) string {
 	return styles.Subtitle.Render(mark)
 }
 
-// --- field traversal ---
-
+// visibleFields según kind
 func (m FormScreen) visibleFields() []fieldID {
 	out := make([]fieldID, 0, len(fieldOrder))
 	for _, id := range fieldOrder {
@@ -366,15 +486,16 @@ func (m FormScreen) visibleFields() []fieldID {
 }
 
 func (m FormScreen) fieldVisible(id fieldID) bool {
-	// ID no se edita: oculto en modo edición
 	if id == fID && m.editing != nil {
 		return false
 	}
 	switch id {
-	case fTool:
-		return m.typ == coretask.TaskTypeScript || m.typ == coretask.TaskTypeCommand
+	case fInterpreter, fTool:
+		return m.kind == coretask.KindScript
+	case fCommand:
+		return m.kind == coretask.KindCommand
 	case fPrompt:
-		return m.typ == coretask.TaskTypeAI
+		return m.kind == coretask.KindAI
 	}
 	return true
 }
@@ -389,20 +510,30 @@ func (m FormScreen) currentField() fieldID {
 
 func (m FormScreen) currentKind() fieldKind {
 	switch m.currentField() {
-	case fType, fPriority:
+	case fKind, fInterpreter, fPriority:
 		return kindSelect
 	case fActive, fFavorite:
 		return kindToggle
+	case fTool:
+		return kindButton
 	default:
 		return kindText
 	}
+}
+
+// currentScriptType: ScriptType del intérprete elegido.
+func (m FormScreen) currentScriptType() tool.ScriptType {
+	if len(m.interpreters) == 0 {
+		return ""
+	}
+	return m.interpreters[m.interpreterIdx].ScriptType
 }
 
 func (m *FormScreen) applyFocus() {
 	m.idInput.Blur()
 	m.nameInput.Blur()
 	m.descInput.Blur()
-	m.toolInput.Blur()
+	m.commandInput.Blur()
 	m.promptInput.Blur()
 
 	switch m.currentField() {
@@ -412,8 +543,8 @@ func (m *FormScreen) applyFocus() {
 		m.nameInput.Focus()
 	case fDesc:
 		m.descInput.Focus()
-	case fTool:
-		m.toolInput.Focus()
+	case fCommand:
+		m.commandInput.Focus()
 	case fPrompt:
 		m.promptInput.Focus()
 	}
@@ -421,14 +552,26 @@ func (m *FormScreen) applyFocus() {
 
 func (m *FormScreen) cycleSelect(dir int) {
 	switch m.currentField() {
-	case fType:
-		opts := []coretask.TaskType{
-			coretask.TaskTypeAI,
-			coretask.TaskTypeScript,
-			coretask.TaskTypeCommand,
+	case fKind:
+		opts := []coretask.TaskKind{
+			coretask.KindScript,
+			coretask.KindCommand,
+			coretask.KindAI,
 		}
-		m.typ = cycleTaskType(opts, m.typ, dir)
+		m.kind = cycleKind(opts, m.kind, dir)
+		// Al cambiar de kind, resetear tool (puede no aplicar)
+		m.selectedTool = nil
 		m.clampFocus()
+
+	case fInterpreter:
+		if len(m.interpreters) == 0 {
+			return
+		}
+		n := len(m.interpreters)
+		m.interpreterIdx = (m.interpreterIdx + dir + n) % n
+		// Si cambia el intérprete, resetear tool (tipo distinto)
+		m.selectedTool = nil
+
 	case fPriority:
 		opts := []coretask.Priority{
 			coretask.PriorityLow,
@@ -457,14 +600,19 @@ func (m *FormScreen) clampFocus() {
 	if m.focus >= n {
 		m.focus = n - 1
 	}
+	m.applyFocus()
 }
-
-// --- save ---
 
 func (m FormScreen) save() (ScreenI, tea.Cmd) {
 	if m.saving {
 		return m, nil
 	}
+	// validar que haya intérprete si kind=script
+	if m.kind == coretask.KindScript && len(m.interpreters) == 0 {
+		m.err = errNoInterpreters
+		return m, nil
+	}
+
 	m.saving = true
 	m.err = nil
 
@@ -488,12 +636,13 @@ func (m FormScreen) save() (ScreenI, tea.Cmd) {
 	}
 }
 
+// [REESCRITO] buildInput usa Kind → Type + Tool + Command/AIPrompt
 func (m FormScreen) buildInput() taskuc.TaskInput {
 	in := taskuc.TaskInput{
 		ID:          strings.TrimSpace(m.idInput.Value()),
 		Name:        strings.TrimSpace(m.nameInput.Value()),
 		Description: strings.TrimSpace(m.descInput.Value()),
-		Type:        m.typ,
+		Type:        m.kind.ToTaskType(),
 		Priority:    m.priority,
 		IsActive:    m.isActive,
 		IsFavorite:  m.isFav,
@@ -502,23 +651,24 @@ func (m FormScreen) buildInput() taskuc.TaskInput {
 		in.ID = m.editing.ID
 	}
 
-	switch m.typ {
-	case coretask.TaskTypeAI:
+	switch m.kind {
+	case coretask.KindScript:
+		if m.selectedTool != nil {
+			in.ToolID = &m.selectedTool.ID
+		}
+	case coretask.KindCommand:
+		in.Command = strings.TrimSpace(m.commandInput.Value())
+		if m.selectedTool != nil {
+			in.ToolID = &m.selectedTool.ID
+		}
+	case coretask.KindAI:
 		in.RequiresAI = true
 		in.AIPrompt = strings.TrimSpace(m.promptInput.Value())
-	default:
-		if v := strings.TrimSpace(m.toolInput.Value()); v != "" {
-			if id, err := strconv.Atoi(v); err == nil {
-				in.ToolID = &id
-			}
-		}
 	}
 	return in
 }
 
-// --- helpers de ciclo ---
-
-func cycleTaskType(opts []coretask.TaskType, current coretask.TaskType, dir int) coretask.TaskType {
+func cycleKind(opts []coretask.TaskKind, current coretask.TaskKind, dir int) coretask.TaskKind {
 	for i, o := range opts {
 		if o == current {
 			return opts[(i+dir+len(opts))%len(opts)]
@@ -533,5 +683,35 @@ func cyclePriority(opts []coretask.Priority, current coretask.Priority, dir int)
 			return opts[(i+dir+len(opts))%len(opts)]
 		}
 	}
-	return opts[1] // medium por defecto
+	return opts[1]
+}
+
+// error local
+var errNoInterpreters = errNoInterpretersT("no hay intérpretes instalados, elige otro tipo")
+
+type errNoInterpretersT string
+
+func (e errNoInterpretersT) Error() string { return string(e) }
+
+// [S4c] Section dividers: agrupan campos en IDENTIDAD / ACCIÓN / METADATOS.
+
+// sectionFor devuelve el nombre de la sección a la que pertenece un campo.
+// "" significa "sin sección".
+func sectionFor(id fieldID) string {
+	switch id {
+	case fID, fName, fDesc:
+		return "Identidad"
+	case fKind, fInterpreter, fTool, fCommand, fPrompt:
+		return "Acción"
+	case fPriority, fActive, fFavorite:
+		return "Metadatos"
+	}
+	return ""
+}
+
+// renderSectionDivider dibuja una línea tipo "─── IDENTIDAD ───".
+func renderSectionDivider(name string) string {
+	line := strings.Repeat("─", 3)
+	header := strings.ToUpper(name)
+	return "\n" + styles.Subtitle.Render(line+" "+header+" "+line) + "\n\n"
 }

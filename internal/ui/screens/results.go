@@ -4,110 +4,97 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/NeRo0128/brain-cli/internal/core/execution"
+	"github.com/NeRo0128/brain-cli/internal/ui/components/states"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
 
 // ResultScreen muestra el resultado de una ejecución.
+//
+// [ACTUALIZADO] migrado a viewport.Model: scroll real, wrapping
+// automático, PageUp/PageDown nativos.
 type ResultScreen struct {
 	exec     *execution.Execution
 	taskName string
-	scroll   int
-	lines    []string
+
+	viewport viewport.Model
+	ready    bool
 }
 
-// NewResultScreen construye la pantalla a partir de una Execution.
 func NewResultScreen(taskName string, exec *execution.Execution) ResultScreen {
-	output := exec.Output
-	if output == "" {
-		output = "(sin output)"
-	}
 	return ResultScreen{
 		exec:     exec,
 		taskName: taskName,
-		lines:    strings.Split(output, "\n"),
 	}
 }
 
-func (m ResultScreen) Init() tea.Cmd { return nil }
-
-func (m ResultScreen) Keys() []string {
-	return []string{keys.NavBack, keys.ViewHelp}
+func (m ResultScreen) Init() tea.Cmd {
+	return tea.WindowSize()
 }
 
-// REEMPLAZA Update:
+func (m ResultScreen) Keys() []string {
+	return []string{
+		keys.NavBack,
+		keys.ActionRerun,
+		keys.ViewHelp,
+	}
+}
+
 func (m ResultScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		vpW := msg.Width - 2
+		vpH := msg.Height - 8
+		if vpH < 3 {
+			vpH = 3
+		}
+		m.viewport = viewport.New(vpW, vpH)
+		m.viewport.SetContent(m.renderOutput())
+		m.ready = true
+		return m, nil
+
 	case ActionMsg:
 		switch msg.ID {
 		case keys.NavBack:
 			return m, Back()
 		case keys.ViewHelp:
 			return m, OpenHelp()
-		}
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "up", "k":
-			if m.scroll > 0 {
-				m.scroll--
-			}
-		case "down", "j":
-			if m.scroll < len(m.lines)-1 {
-				m.scroll++
-			}
-		case "g":
-			m.scroll = 0
-		case "G":
-			m.scroll = len(m.lines) - 1
+		case keys.ActionRerun:
+			return m, ExecuteTask(m.exec.TaskID, m.taskName)
 		}
 	}
-	return m, nil
+
+	var cmd tea.Cmd
+	m.viewport, cmd = m.viewport.Update(msg)
+	return m, cmd
 }
 
 func (m ResultScreen) View() string {
-	var b strings.Builder
+	if !m.ready {
+		return states.Loading("resultado")
+	}
 
-	// Encabezado con estado
 	status := renderStatus(m.exec)
-	b.WriteString(styles.Title.Render("🧠 " + m.taskName))
-	b.WriteString("  ")
-	b.WriteString(status)
-	b.WriteString("\n")
+	meta := " · " + styles.HumanDuration(m.exec.Duration()) +
+		" · exit " + formatExitCode(m.exec.ExitCode)
 
-	// Metadata
-	meta := fmt.Sprintf("duración: %s  ·  exit: %s",
-		m.exec.Duration().Round(10*1e6), formatExitCode(m.exec.ExitCode))
-	b.WriteString(styles.Subtitle.Render(meta))
+	var b strings.Builder
+	b.WriteString("  " + status + styles.Subtitle.Render(meta))
 	b.WriteString("\n\n")
-
-	// Output con ventana deslizante
-	maxLines := 15
-	start := m.scroll
-	end := start + maxLines
-	if end > len(m.lines) {
-		end = len(m.lines)
-	}
-	for _, line := range m.lines[start:end] {
-		b.WriteString(line)
-		b.WriteString("\n")
-	}
-
-	if len(m.lines) > maxLines {
-		b.WriteString(styles.Subtitle.Render(
-			fmt.Sprintf("\n[%d/%d líneas]", end, len(m.lines))))
-	}
-
-	b.WriteString("\n\n")
-	b.WriteString(styles.Help.Render(
-		styles.Key.Render("↑↓") + " scroll  ·  " +
-			styles.Key.Render("Esc") + " volver  ·  " +
-			styles.Key.Render("q") + " salir",
-	))
-
+	b.WriteString(m.viewport.View())
 	return b.String()
+}
+
+func (m ResultScreen) renderOutput() string {
+	out := m.exec.Output
+	if out == "" {
+		out = "(sin output)"
+	}
+	return strings.TrimRight(out, "\n")
 }
 
 func renderStatus(e *execution.Execution) string {
