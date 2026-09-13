@@ -99,3 +99,38 @@ func OpenToolPicker(current *int, filter tool.ScriptType) tea.Cmd {
 func ToolSelected(t *tool.Tool) tea.Cmd {
 	return func() tea.Msg { return ToolSelectedMsg{Tool: t} }
 }
+
+// --- Confirm modal ---
+
+// OpenConfirmMsg pide al Model pushear el ConfirmScreen.
+type OpenConfirmMsg struct {
+	Title   string
+	Message string
+	Action  tea.Msg // msg a despachar tras confirmar
+}
+
+// ConfirmYesMsg lo emite el ConfirmScreen al confirmar.
+// El Model raíz poppea el confirm y despacha Action.
+type ConfirmYesMsg struct {
+	Action tea.Msg
+}
+
+// DeleteTaskMsg indica al Model que borre una task.
+// Se usa como Action dentro de OpenConfirmMsg.
+type DeleteTaskMsg struct {
+	TaskID   string
+	TaskName string
+}
+
+// TaskDeletedMsg es el resultado del borrado.
+type TaskDeletedMsg struct {
+	TaskID string
+	Err    error
+}
+
+// OpenConfirm construye el comando que pushea el modal.
+func OpenConfirm(title, message string, action tea.Msg) tea.Cmd {
+	return func() tea.Msg {
+		return OpenConfirmMsg{Title: title, Message: message, Action: action}
+	}
+}

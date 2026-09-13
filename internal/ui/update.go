@@ -96,6 +96,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.setTop(newTop)
 		return m, tea.Batch(toastCmd, cmd, toasts.ShowSuccess("Task guardada"))
 
+	case screens.OpenConfirmMsg:
+		c := screens.NewConfirm(msg.Title, msg.Message, msg.Action)
+		return m, tea.Batch(toastCmd, push(c), c.Init())
+
+	case screens.ConfirmYesMsg:
+		if len(m.stack) > 1 {
+			m.stack = m.stack[:len(m.stack)-1]
+		}
+		return m.dispatchConfirmed(msg.Action, toastCmd)
+
+	case screens.TaskDeletedMsg:
+		if msg.Err != nil {
+			return m, tea.Batch(toastCmd,
+				toasts.ShowError("Error al borrar: "+msg.Err.Error()))
+		}
+		newTop, cmd := m.top().Update(screens.ReloadMsg{})
+		m.setTop(newTop)
+		return m, tea.Batch(toastCmd, cmd, toasts.ShowSuccess("Task borrada"))
+
 	case screens.ExecuteTaskMsg:
 		return m.startExecution(msg, toastCmd)
 

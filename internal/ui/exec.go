@@ -88,3 +88,19 @@ func (m Model) runTask(ctx context.Context, taskID, taskName string) tea.Cmd {
 		return executionFinishedMsg{taskName: taskName, exec: exec, err: err}
 	}
 }
+
+// dispatchConfirmed ejecuta la acción elegida tras confirmar un modal.
+// El ConfirmScreen ya fue poppeado por el Update del Model.
+func (m Model) dispatchConfirmed(action tea.Msg, toastCmd tea.Cmd) (tea.Model, tea.Cmd) {
+	switch a := action.(type) {
+	case screens.DeleteTaskMsg:
+		mgr := m.deps.Manager
+		return m, tea.Batch(toastCmd, func() tea.Msg {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			err := mgr.Delete(ctx, a.TaskID)
+			return screens.TaskDeletedMsg{TaskID: a.TaskID, Err: err}
+		})
+	}
+	return m, toastCmd
+}

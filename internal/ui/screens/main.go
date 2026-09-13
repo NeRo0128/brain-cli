@@ -3,16 +3,16 @@ package screens
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
-	"github.com/charmbracelet/bubbles/list"
-
 	"github.com/NeRo0128/brain-cli/internal/core/task"
+	coretask "github.com/NeRo0128/brain-cli/internal/core/task"
+	uilist "github.com/NeRo0128/brain-cli/internal/ui/components/list"
+	"github.com/NeRo0128/brain-cli/internal/ui/components/states"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // --- Mensajes propios de la pantalla ---
@@ -30,86 +30,52 @@ type taskItem struct {
 	task *task.Task
 }
 
-func (i taskItem) Title() string {
-	title := i.task.Name
+func (i taskItem) Title() string       { return i.task.Name }
+func (i taskItem) Description() string { return "" }
+func (i taskItem) FilterValue() string { return i.task.Name + " " + i.task.ID }
+
+func (i taskItem) Row() uilist.Row {
+	prefix := ""
 	if i.task.IsFavorite {
-		title = "★ " + title
+		prefix = "★"
 	}
-	return title
-}
-
-func (i taskItem) Description() string {
-	return fmt.Sprintf("[%s] %s  ·  %s", i.task.ID, i.task.Type, i.task.Priority)
-}
-
-// FilterValue permite buscar por nombre e ID.
-func (i taskItem) FilterValue() string {
-	return i.task.Name + " " + i.task.ID
-}
-
-// --- Item delegate (cómo se renderiza cada fila) ---
-
-type taskDelegate struct{}
-
-func (d taskDelegate) Height() int                             { return 2 }
-func (d taskDelegate) Spacing() int                            { return 1 }
-func (d taskDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
-
-func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
-	it, ok := item.(taskItem)
-	if !ok {
-		return
+	return uilist.Row{
+		Prefix: prefix,
+		Title:  i.task.Name,
+		Badges: []uilist.Badge{
+			uilist.TypeBadge(string(i.task.Type)),
+			uilist.PriorityBadge(string(i.task.Priority)),
+		},
+		Subtitle: "[" + i.task.ID + "]",
 	}
-
-	selected := index == m.Index()
-
-	titleStyle := lipgloss.NewStyle().Foreground(styles.Text)
-	descStyle := lipgloss.NewStyle().Foreground(styles.Muted)
-	cursor := "  "
-
-	if selected {
-		titleStyle = titleStyle.Bold(true).Foreground(styles.Primary)
-		cursor = "▶ "
-	}
-
-	fmt.Fprintf(w, "%s%s\n", cursor, titleStyle.Render(it.Title()))
-	fmt.Fprintf(w, "   %s", descStyle.Render(it.Description()))
 }
 
-// --- Pantalla principal ---
+// --- Pantalla ---
 
-// MainScreen es la pantalla de lista de tasks.
 type MainScreen struct {
-	width   int
-	height  int
-	appName string
-	version string
-
-	loading bool
-	err     error
-	list    list.Model
-	repo    task.Repository
+	width, height int
+	loading       bool
+	err           error
+	list          list.Model
+	repo          coretask.Repository
 }
 
-// NewMainScreen construye la pantalla.
-func NewMainScreen(version, appName string, repo task.Repository) MainScreen {
-	l := list.New(nil, taskDelegate{}, 80, 20)
+func NewMainScreen(repo coretask.Repository) MainScreen {
+	l := list.New(nil, uilist.New(), 80, 20)
 	l.Title = "Tareas"
 	l.SetShowStatusBar(false)
+	l.SetShowHelp(false)
 	l.SetFilteringEnabled(true)
 	l.Styles.Title = styles.Title
 	l.Styles.HelpStyle = styles.Help
 
 	return MainScreen{
-		appName: appName,
-		version: version,
 		list:    l,
 		repo:    repo,
 		loading: true,
 	}
 }
 
-// Init dispara la carga asíncrona.
 func (m MainScreen) Init() tea.Cmd {
 	repo := m.repo
 	return func() tea.Msg {
@@ -119,12 +85,12 @@ func (m MainScreen) Init() tea.Cmd {
 		return tasksLoadedMsg{tasks: tasks, err: err}
 	}
 }
+
 func (m MainScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		m.list.SetSize(msg.Width, msg.Height-6)
+		m.width, m.height = msg.Width, msg.Height
+		m.list.SetSize(msg.Width-2, msg.Height-6)
 
 	case tasksLoadedMsg:
 		m.loading = false
@@ -133,6 +99,7 @@ func (m MainScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 			m.setItems(msg.tasks)
 		}
 		return m, nil
+
 	case ReloadMsg:
 		m.loading = true
 		return m, m.Init()
@@ -149,32 +116,37 @@ func (m MainScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 func (m MainScreen) handleAction(msg ActionMsg) (ScreenI, tea.Cmd) {
 	switch msg.ID {
 	case keys.ActionExecute:
-		tk := m.SelectedTask()
-		if tk == nil {
-			return m, nil
+		if tk := m.SelectedTask(); tk != nil {
+			return m, ExecuteTask(tk.ID, tk.Name)
 		}
-		return m, ExecuteTask(tk.ID, tk.Name)
 	case keys.EditNew:
 		return m, OpenForm(nil)
 	case keys.ViewDetail:
+		if tk := m.SelectedTask(); tk != nil {
+			return m, OpenDetail(tk)
+		}
+	case keys.ViewHistory:
+		return m, OpenHistory()
+	case keys.ViewHelp:
+		return m, OpenHelp()
+	case keys.EditDelete:
 		tk := m.SelectedTask()
 		if tk == nil {
 			return m, nil
 		}
-		return m, OpenDetail(tk)
-
-	case keys.ViewHistory:
-		return m, OpenHistory()
-
-	case keys.ViewHelp:
-		return m, OpenHelp()
-
+		return m, OpenConfirm(
+			"Borrar task",
+			fmt.Sprintf(
+				"¿Borrar la task '%s'?\n\nEsta acción no se puede deshacer.",
+				tk.Name,
+			),
+			DeleteTaskMsg{TaskID: tk.ID, TaskName: tk.Name},
+		)
 	}
 	return m, nil
 }
 
-// setItems pobla la lista con las tasks.
-func (m *MainScreen) setItems(tasks []*task.Task) {
+func (m *MainScreen) setItems(tasks []*coretask.Task) {
 	items := make([]list.Item, len(tasks))
 	for i, t := range tasks {
 		items[i] = taskItem{task: t}
@@ -182,8 +154,7 @@ func (m *MainScreen) setItems(tasks []*task.Task) {
 	m.list.SetItems(items)
 }
 
-// SelectedTask devuelve la task actualmente seleccionada (nil si no hay).
-func (m MainScreen) SelectedTask() *task.Task {
+func (m MainScreen) SelectedTask() *coretask.Task {
 	it, ok := m.list.SelectedItem().(taskItem)
 	if !ok {
 		return nil
@@ -191,28 +162,16 @@ func (m MainScreen) SelectedTask() *task.Task {
 	return it.task
 }
 
-// View renderiza la pantalla.
 func (m MainScreen) View() string {
-	header := styles.Title.Render("🧠 "+m.appName) + "  " +
-		styles.Subtitle.Render("v"+m.version)
-
 	switch {
 	case m.loading:
-		return header + "\n\n" + styles.Subtitle.Render("Cargando tareas...") + "\n"
+		return states.Loading("tareas")
 	case m.err != nil:
-		return header + "\n\n" + styles.Key.Render("Error: ") + m.err.Error() + "\n"
+		return states.Error(m.err)
+	case len(m.list.Items()) == 0:
+		return states.Empty("Sin tareas", "Pulsa n para crear la primera")
 	}
-
-	help := styles.Help.Render(
-		styles.Key.Render("↑↓") + " navegar  ·  " +
-			styles.Key.Render("Enter") + " ejecutar  ·  " +
-			styles.Key.Render("d") + " detalle  ·  " +
-			styles.Key.Render("h") + " historial  ·  " +
-			styles.Key.Render("/") + " filtrar  ·  " +
-			styles.Key.Render("q") + " salir",
-	)
-
-	return header + "\n\n" + m.list.View() + "\n" + help
+	return m.list.View()
 }
 
 func (m MainScreen) Keys() []string {
@@ -221,6 +180,7 @@ func (m MainScreen) Keys() []string {
 		keys.ViewDetail,
 		keys.ViewHistory,
 		keys.EditNew,
+		keys.EditDelete,
 		keys.ViewHelp,
 	}
 }
