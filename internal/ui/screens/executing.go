@@ -1,26 +1,34 @@
 package screens
 
 import (
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/NeRo0128/brain-cli/internal/ui/components/progress"
+	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
 
-// executingTickMsg dispara re-render para actualizar el cronómetro.
+// executingTickMsg dispara re-render del cronómetro (cada 1s).
 type executingTickMsg struct{}
 
 // ExecutingScreen muestra el progreso de una ejecución en curso.
+//
+// [ACTUALIZADO] añade barra de progreso animada (indeterminada)
+// sincronizada con el spinner.
 type ExecutingScreen struct {
 	spinner   spinner.Model
 	taskName  string
 	startedAt time.Time
 	canceling bool
+
+	bar       progress.Model
+	barOffset int
 }
 
-// NewExecutingScreen construye la pantalla.
 func NewExecutingScreen(taskName string) ExecutingScreen {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
@@ -30,31 +38,44 @@ func NewExecutingScreen(taskName string) ExecutingScreen {
 		spinner:   s,
 		taskName:  taskName,
 		startedAt: time.Now(),
+		bar:       progress.New(40),
 	}
 }
 
-// Init arranca el spinner y el tick del cronómetro (cada 1s).
 func (m ExecutingScreen) Init() tea.Cmd {
-	return tea.Batch(m.spinner.Tick, m.tick())
+	return tea.Batch(m.spinner.Tick, m.tick(), tea.WindowSize())
 }
 
-func (m ExecutingScreen) Keys() []string { return nil }
+func (m ExecutingScreen) Keys() []string {
+	return []string{keys.ActionCancel}
+}
 
-// REEMPLAZA Update:
 func (m ExecutingScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
+		m.barOffset++
 		return m, cmd
+
 	case executingTickMsg:
 		return m, m.tick()
+
+	case tea.WindowSizeMsg:
+		w := msg.Width - 6
+		if w < 20 {
+			w = 20
+		}
+		if w > 70 {
+			w = 70
+		}
+		m.bar = m.bar.WithWidth(w)
+		return m, nil
 	}
 	return m, nil
 }
 
 // MarkCanceling indica que el usuario pidió cancelar.
-// La pantalla sigue corriendo hasta que llega executionFinishedMsg.
 func (m ExecutingScreen) MarkCanceling() ExecutingScreen {
 	m.canceling = true
 	return m
@@ -66,30 +87,31 @@ func (m ExecutingScreen) tick() tea.Cmd {
 	})
 }
 
-// View renderiza la pantalla.
+// View renderiza SOLO el contenido del medio.
 func (m ExecutingScreen) View() string {
 	elapsed := time.Since(m.startedAt).Round(time.Second)
 
-	var b string
+	var status string
 	if m.canceling {
-		b = styles.WarningStyle.Render("⊘ Cancelando...")
+		status = styles.WarningStyle.Render("⊘ Cancelando")
 	} else {
-		b = m.spinner.View() + " Ejecutando"
+		status = m.spinner.View() + " Ejecutando"
 	}
 
-	header := styles.Title.Render(b) + "\n\n"
-	header += "  " + styles.Key.Render("Tarea:") + " " + m.taskName + "\n"
-	header += "  " + styles.TimerStyle.Render("Tiempo: "+elapsed.String()) + "\n\n"
+	var b strings.Builder
+	b.WriteString("  " + status + "  ")
+	b.WriteString(styles.TimerStyle.Render(elapsed.String()))
+	b.WriteString("\n\n")
 
-	var help string
+	b.WriteString("  " + styles.Key.Render("Tarea:") + " " + m.taskName + "\n\n")
+
+	b.WriteString("  " + m.bar.WithOffset(m.barOffset).View() + "\n")
+
 	if m.canceling {
-		help = styles.Subtitle.Render("Esperando a que termine el proceso...")
-	} else {
-		help = styles.Help.Render(
-			styles.Key.Render("Esc") + " cancelar  ·  " +
-				styles.Key.Render("Ctrl+C") + " salir",
-		)
+		b.WriteString("\n  " +
+			styles.Subtitle.Render("Esperando a que termine el proceso...") +
+			"\n")
 	}
 
-	return header + help
+	return b.String()
 }
