@@ -10,6 +10,7 @@ import (
 	"github.com/NeRo0128/brain-cli/internal/adapters/database"
 	"github.com/NeRo0128/brain-cli/internal/adapters/database/repositories"
 	"github.com/NeRo0128/brain-cli/internal/adapters/executor"
+	"github.com/NeRo0128/brain-cli/internal/core/tool"
 	"github.com/NeRo0128/brain-cli/internal/ui"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/screens"
@@ -77,9 +78,13 @@ func main() {
 	toolRepo := repositories.NewToolRepository(db.DB())
 	execRepo := repositories.NewExecutionRepository(db.DB())
 
-	// 5. Use case: la factory de executors se inyecta como función.
+	// * Use case: la factory de executors se inyecta como función.
 	executorUC := taskEsxec.NewExecutor(taskRepo, toolRepo, execRepo, executor.New)
 	managerUC := taskEsxec.NewManager(taskRepo, toolRepo)
+	interpreters := tool.Available(tool.Detect())
+	if len(interpreters) == 0 {
+		log.Warn().Msg("no hay intérpretes disponibles; el tipo 'script' estará deshabilitado")
+	}
 
 	//  * KeyMap
 	keyRegistry := keys.New(nil)
@@ -90,25 +95,22 @@ func main() {
 		Msg("Brain CLI iniciando")
 
 	deps := ui.Deps{
-		Version:  Version,
-		Cfg:      cfg,
-		ExecUC:   executorUC,
-		TaskRepo: taskRepo,
-		ToolRepo: toolRepo,
-		ExecRepo: execRepo,
-		Keys:     keyRegistry,
-		Log:      log,
-		Manager:  managerUC,
+		Version:     Version,
+		Cfg:         cfg,
+		ExecUC:      executorUC,
+		TaskRepo:    taskRepo,
+		ToolRepo:    toolRepo,
+		ExecRepo:    execRepo,
+		Keys:        keyRegistry,
+		Log:         log,
+		Manager:     managerUC,
+		Interpreter: interpreters,
 	}
 
 	p := tea.NewProgram(
 		ui.NewModels(
 			deps,
-			screens.NewMainScreen(
-				Version,
-				cfg.App.Name,
-				taskRepo,
-			),
+			screens.NewMainScreen(taskRepo),
 		),
 		tea.WithAltScreen(),
 	)
