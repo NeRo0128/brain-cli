@@ -2,6 +2,7 @@ package screens
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -23,7 +24,7 @@ type toolsLoadedMsg struct {
 
 type toolItem struct {
 	tool    *tool.Tool
-	current bool // [S4c] ★ actual badge si es el tool seleccionado
+	current bool
 }
 
 func (i toolItem) Title() string       { return i.tool.Name }
@@ -35,7 +36,6 @@ func (i toolItem) Row() uilist.Row {
 	if i.tool.Category != "" {
 		badges = append(badges, uilist.CategoryBadge(string(i.tool.Category)))
 	}
-	// [S4c] badge "actual" si es el tool seleccionado
 	if i.current {
 		badges = append(badges, uilist.Badge{
 			Text:  "★ actual",
@@ -60,9 +60,10 @@ type ToolPickerScreen struct {
 	loading bool
 	err     error
 
-	repo       tool.Repository
-	currentID  *int
-	filterType tool.ScriptType
+	repo            tool.Repository
+	currentID       *int
+	filterType      tool.ScriptType
+	pendingSelectID *int
 }
 
 func NewToolPickerScreen(repo tool.Repository, currentID *int, filterType tool.ScriptType) ToolPickerScreen {
@@ -112,7 +113,15 @@ func (m ToolPickerScreen) Init() tea.Cmd {
 }
 
 func (m ToolPickerScreen) Keys() []string {
-	return []string{keys.NavConfirm, keys.NavBack, keys.NavFilter, keys.ViewHelp}
+	return []string{
+		keys.NavConfirm,
+		keys.NavBack,
+		keys.NavFilter,
+		keys.EditNew,
+		keys.EditUpdate,
+		keys.EditDelete,
+		keys.ViewHelp,
+	}
 }
 
 func (m ToolPickerScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
@@ -129,21 +138,16 @@ func (m ToolPickerScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 		}
 		return m, nil
 
+	case ReloadMsg:
+		m.loading = true
+		return m, m.Init()
+
+	case ToolCreatedMsg:
+		m.pendingSelectID = &msg.ToolID
+		return m, nil
+
 	case ActionMsg:
-		switch msg.ID {
-		case keys.NavConfirm:
-			it, ok := m.list.SelectedItem().(toolItem)
-			if !ok {
-				return m, nil
-			}
-			return m, ToolSelected(it.tool)
-		case keys.NavBack:
-			return m, Back()
-		case keys.ViewHelp:
-			return m, OpenHelp()
-		case keys.NavFilter:
-			// dejar que la lista maneje "/"
-		}
+		return m.handleAction(msg)
 	}
 
 	var cmd tea.Cmd
@@ -151,12 +155,57 @@ func (m ToolPickerScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	return m, cmd
 }
 
+func (m ToolPickerScreen) handleAction(msg ActionMsg) (ScreenI, tea.Cmd) {
+	switch msg.ID {
+	case keys.NavConfirm:
+		it, ok := m.list.SelectedItem().(toolItem)
+		if !ok {
+			return m, nil
+		}
+		return m, ToolSelected(it.tool)
+	case keys.NavBack:
+		return m, Back()
+	case keys.ViewHelp:
+		return m, OpenHelp()
+	case keys.EditNew:
+		return m, OpenToolForm(nil)
+	case keys.EditUpdate:
+		it, ok := m.list.SelectedItem().(toolItem)
+		if !ok {
+			return m, nil
+		}
+		return m, OpenToolForm(it.tool)
+	case keys.EditDelete:
+		it, ok := m.list.SelectedItem().(toolItem)
+		if !ok {
+			return m, nil
+		}
+		return m, OpenConfirm(
+			"Borrar tool",
+			fmt.Sprintf("¿Borrar el tool '%s'?\n\nEsta acción no se puede deshacer.",
+				it.tool.Name),
+			DeleteToolMsg{ToolID: it.tool.ID, ToolName: it.tool.Name},
+		)
+	case keys.NavFilter:
+		// dejar que la lista maneje "/"
+	}
+	return m, nil
+}
+
 func (m *ToolPickerScreen) setItems(tools []*tool.Tool) {
+	// Priorizar pendingSelectID sobre currentID.
+	selectID := m.currentID
+	if m.pendingSelectID != nil {
+		selectID = m.pendingSelectID
+		m.pendingSelectID = nil
+	}
+
 	items := make([]list.Item, len(tools))
 	selectedIdx := -1
 	for i, t := range tools {
-		isCurrent := m.currentID != nil && t.ID == *m.currentID
-		items[i] = toolItem{tool: t, current: isCurrent}
+		isExisting := m.currentID != nil && t.ID == *m.currentID
+		isCurrent := selectID != nil && t.ID == *selectID
+		items[i] = toolItem{tool: t, current: isExisting}
 		if isCurrent {
 			selectedIdx = i
 		}
@@ -174,7 +223,7 @@ func (m ToolPickerScreen) View() string {
 	case m.err != nil:
 		return states.Error(m.err)
 	case len(m.list.Items()) == 0:
-		return states.Empty("No hay tools disponibles", "Crea uno con el formulario")
+		return states.Empty("No hay tools disponibles", "Pulsa n para crear uno")
 	}
 	return m.list.View()
 }

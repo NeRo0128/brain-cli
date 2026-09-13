@@ -3,12 +3,6 @@ module github.com/NeRo0128/brain-cli
 go 1.25.0
 
 require (
-	// TUI Framework
-	github.com/charmbracelet/bubbletea v1.3.10
-	github.com/charmbracelet/lipgloss v1.1.0
-)
-
-require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charmbracelet/colorprofile v0.4.1 // indirect
 	github.com/charmbracelet/x/ansi v0.11.6 // indirect
@@ -29,10 +23,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require (
-	github.com/rs/zerolog v1.35.1
-	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
-)
+require github.com/rs/zerolog v1.35.1
 
 require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -40,7 +31,6 @@ require (
 )
 
 require (
-	github.com/charmbracelet/bubbles v1.0.0
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
@@ -49,6 +39,12 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 	modernc.org/sqlite v1.58.0
+)
+
+require (
+	github.com/charmbracelet/bubbles v1.0.0
+	github.com/charmbracelet/bubbletea v1.3.10
+	github.com/charmbracelet/lipgloss v1.1.0
 )
 
 require (

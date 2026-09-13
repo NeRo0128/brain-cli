@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"context"
+	"time"
+
 	toasts "github.com/NeRo0128/brain-cli/internal/ui/components/toast"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/screens"
@@ -114,6 +117,40 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		newTop, cmd := m.top().Update(screens.ReloadMsg{})
 		m.setTop(newTop)
 		return m, tea.Batch(toastCmd, cmd, toasts.ShowSuccess("Task borrada"))
+
+	case screens.OpenToolFormMsg:
+		f := screens.NewToolFormScreen(msg.Tool, m.deps.ToolManager, m.deps.Log)
+		return m, tea.Batch(toastCmd, push(f), f.Init())
+
+	case screens.ToolFormSavedMsg:
+		if len(m.stack) > 1 {
+			m.stack = m.stack[:len(m.stack)-1]
+		}
+		newTop, cmd := m.top().Update(screens.ReloadMsg{})
+		m.setTop(newTop)
+		toastCmd2 := toasts.ShowSuccess("Tool guardado")
+		created := screens.ToolCreatedMsg{ToolID: msg.Tool.ID}
+		newTop2, cmd2 := m.top().Update(created)
+		m.setTop(newTop2)
+		return m, tea.Batch(toastCmd, cmd, cmd2, toastCmd2)
+
+	case screens.DeleteToolMsg:
+		mgr := m.deps.ToolManager
+		return m, tea.Batch(toastCmd, func() tea.Msg {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			err := mgr.Delete(ctx, msg.ToolID)
+			return screens.ToolDeletedMsg{ToolID: msg.ToolID, Err: err}
+		})
+
+	case screens.ToolDeletedMsg:
+		if msg.Err != nil {
+			return m, tea.Batch(toastCmd,
+				toasts.ShowError("Error al borrar tool: "+msg.Err.Error()))
+		}
+		newTop, cmd := m.top().Update(screens.ReloadMsg{})
+		m.setTop(newTop)
+		return m, tea.Batch(toastCmd, cmd, toasts.ShowSuccess("Tool borrado"))
 
 	case screens.ExecuteTaskMsg:
 		return m.startExecution(msg, toastCmd)

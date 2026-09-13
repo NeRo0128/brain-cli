@@ -134,3 +134,35 @@ func OpenConfirm(title, message string, action tea.Msg) tea.Cmd {
 		return OpenConfirmMsg{Title: title, Message: message, Action: action}
 	}
 }
+
+// --- Tool form ---
+
+// OpenToolFormMsg pide al Model pushear el ToolFormScreen.
+// Tool nil = crear, no-nil = editar.
+type OpenToolFormMsg struct{ Tool *tool.Tool }
+
+// ToolFormSavedMsg se emite tras guardar un tool con éxito.
+// Lleva el tool creado/actualizado para que el Model pueda refrescar.
+type ToolFormSavedMsg struct{ Tool *tool.Tool }
+
+// DeleteToolMsg indica al Model que borre un tool (viene del ConfirmScreen).
+type DeleteToolMsg struct {
+	ToolID   int
+	ToolName string
+}
+
+// ToolDeletedMsg es el resultado del borrado.
+type ToolDeletedMsg struct {
+	ToolID int
+	Err    error
+}
+
+// ToolCreatedMsg notifica al picker que se creó un tool nuevo.
+// El Model lo envía tras poppear el ToolFormScreen.
+type ToolCreatedMsg struct{ ToolID int }
+
+// --- Helpers ---
+
+func OpenToolForm(t *tool.Tool) tea.Cmd {
+	return func() tea.Msg { return OpenToolFormMsg{Tool: t} }
+}

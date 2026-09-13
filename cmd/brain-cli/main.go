@@ -15,6 +15,7 @@ import (
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/screens"
 	taskEsxec "github.com/NeRo0128/brain-cli/internal/usecases/task"
+	tooluc "github.com/NeRo0128/brain-cli/internal/usecases/tool"
 	"github.com/NeRo0128/brain-cli/pkg/utils"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -81,6 +82,7 @@ func main() {
 	// * Use case: la factory de executors se inyecta como función.
 	executorUC := taskEsxec.NewExecutor(taskRepo, toolRepo, execRepo, executor.New)
 	managerUC := taskEsxec.NewManager(taskRepo, toolRepo)
+	toolManagerUC := tooluc.NewManager(toolRepo)
 	interpreters := tool.Available(tool.Detect())
 	if len(interpreters) == 0 {
 		log.Warn().Msg("no hay intérpretes disponibles; el tipo 'script' estará deshabilitado")
@@ -104,6 +106,7 @@ func main() {
 		Keys:        keyRegistry,
 		Log:         log,
 		Manager:     managerUC,
+		ToolManager: toolManagerUC,
 		Interpreter: interpreters,
 	}
 
