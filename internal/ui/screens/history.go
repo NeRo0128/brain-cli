@@ -2,115 +2,83 @@ package screens
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"time"
 
+	"github.com/NeRo0128/brain-cli/internal/core/execution"
+	coretask "github.com/NeRo0128/brain-cli/internal/core/task"
+	uilist "github.com/NeRo0128/brain-cli/internal/ui/components/list"
+	"github.com/NeRo0128/brain-cli/internal/ui/components/states"
+	"github.com/NeRo0128/brain-cli/internal/ui/keys"
+	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-
-	"github.com/NeRo0128/brain-cli/internal/core/execution"
-	"github.com/NeRo0128/brain-cli/internal/core/task"
-	"github.com/NeRo0128/brain-cli/internal/ui/keys"
-	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
 
-// historyLoadedMsg trae las ejecuciones + nombres de tasks.
 type historyLoadedMsg struct {
 	executions []*execution.Execution
 	taskNames  map[string]string
 	err        error
 }
 
-// executionItem adapta *execution.Execution a list.Item.
+// --- Item ---
+
 type executionItem struct {
 	exec     *execution.Execution
 	taskName string
 }
 
-func (i executionItem) Title() string {
-	icon, _ := statusIcon(i.exec.Status)
-	return icon + " " + i.taskName
-}
-
-func (i executionItem) Description() string {
-	dur := i.exec.Duration().Round(time.Millisecond)
-	ts := i.exec.StartedAt.Local().Format("2006-01-02 15:04:05")
-	meta := fmt.Sprintf("%s · %s · %s", ts, dur, i.exec.Status)
-	if i.exec.ExitCode != nil && *i.exec.ExitCode > 0 {
-		meta += fmt.Sprintf(" (exit %d)", *i.exec.ExitCode)
-	}
-	return meta
-}
-
+func (i executionItem) Title() string       { return i.taskName }
+func (i executionItem) Description() string { return "" }
 func (i executionItem) FilterValue() string {
 	return i.taskName + " " + string(i.exec.Status)
 }
 
-// --- delegate ---
-
-type executionDelegate struct{}
-
-func (d executionDelegate) Height() int                             { return 2 }
-func (d executionDelegate) Spacing() int                            { return 1 }
-func (d executionDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
-
-func (d executionDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
-	it, ok := item.(executionItem)
-	if !ok {
-		return
+func (i executionItem) Row() uilist.Row {
+	icon, color := statusIconAndColor(i.exec.Status)
+	return uilist.Row{
+		Prefix:      icon,
+		PrefixColor: color,
+		Title:       i.taskName,
+		Badges:      []uilist.Badge{uilist.StatusBadge(string(i.exec.Status))},
+		Subtitle:    styles.HumanTime(i.exec.StartedAt),
+		Meta:        styles.HumanDuration(i.exec.Duration()),
 	}
-
-	selected := index == m.Index()
-	cursor := "  "
-	titleStyle := lipgloss.NewStyle().Foreground(styles.Text)
-	if selected {
-		cursor = "▶ "
-		titleStyle = titleStyle.Bold(true).Foreground(styles.Primary)
-	}
-
-	icon, iconStyle := statusIcon(it.exec.Status)
-	metaStyle := lipgloss.NewStyle().Foreground(styles.Muted)
-
-	fmt.Fprintf(w, "%s%s %s\n", cursor, iconStyle.Render(icon), titleStyle.Render(it.taskName))
-	fmt.Fprintf(w, "   %s", metaStyle.Render(it.Description()))
 }
 
-// statusIcon devuelve el símbolo y su estilo según el estado.
-func statusIcon(s execution.Status) (string, lipgloss.Style) {
+// statusIconAndColor centraliza iconos de estado.
+func statusIconAndColor(s execution.Status) (string, lipgloss.TerminalColor) {
 	switch s {
 	case execution.StatusCompleted:
-		return "✓", styles.SuccessStyle
+		return "✓", styles.Success
 	case execution.StatusFailed:
-		return "✗", styles.ErrorStyle
+		return "✗", styles.Error
 	case execution.StatusCancelled:
-		return "⊘", styles.WarningStyle
+		return "⊘", styles.Warning
 	case execution.StatusRunning, execution.StatusPending:
-		return "◐", styles.Subtitle
+		return "◐", styles.Primary
 	}
-	return "?", styles.Subtitle
+	return "•", styles.Muted
 }
 
-// --- pantalla ---
+// --- Pantalla ---
 
-// HistoryScreen muestra el historial de ejecuciones.
 type HistoryScreen struct {
 	list    list.Model
 	loading bool
 	err     error
 
 	execRepo execution.Repository
-	taskRepo task.Repository
+	taskRepo coretask.Repository
 
 	names map[string]string
 }
 
-// NewHistoryScreen construye la pantalla.
-func NewHistoryScreen(execRepo execution.Repository, taskRepo task.Repository) HistoryScreen {
-	l := list.New(nil, executionDelegate{}, 80, 20)
+func NewHistoryScreen(execRepo execution.Repository, taskRepo coretask.Repository) HistoryScreen {
+	l := list.New(nil, uilist.New(), 80, 20)
 	l.Title = "Historial"
 	l.SetShowStatusBar(false)
+	l.SetShowHelp(false)
 	l.SetFilteringEnabled(true)
 	l.Styles.Title = styles.Title
 	l.Styles.HelpStyle = styles.Help
@@ -124,7 +92,6 @@ func NewHistoryScreen(execRepo execution.Repository, taskRepo task.Repository) H
 	}
 }
 
-// Init carga ejecuciones + nombres de tasks (batch).
 func (m HistoryScreen) Init() tea.Cmd {
 	execRepo, taskRepo := m.execRepo, m.taskRepo
 	load := func() tea.Msg {
@@ -148,20 +115,14 @@ func (m HistoryScreen) Init() tea.Cmd {
 	return tea.Batch(tea.WindowSize(), load)
 }
 
-// Update maneja mensajes.
 func (m HistoryScreen) Keys() []string {
-	return []string{
-		keys.NavConfirm,
-		keys.NavBack,
-		keys.ViewHelp,
-	}
+	return []string{keys.NavConfirm, keys.NavBack, keys.ViewHelp}
 }
 
-// REEMPLAZA Update:
 func (m HistoryScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.list.SetSize(msg.Width, msg.Height-6)
+		m.list.SetSize(msg.Width-2, msg.Height-6)
 		return m, nil
 
 	case historyLoadedMsg:
@@ -198,7 +159,6 @@ func (m HistoryScreen) handleAction(msg ActionMsg) (ScreenI, tea.Cmd) {
 	return m, nil
 }
 
-// SelectedExecution devuelve la ejecución seleccionada + nombre de la task.
 func (m HistoryScreen) SelectedExecution() (*execution.Execution, string) {
 	it, ok := m.list.SelectedItem().(executionItem)
 	if !ok {
@@ -219,26 +179,14 @@ func (m *HistoryScreen) setItems(execs []*execution.Execution) {
 	m.list.SetItems(items)
 }
 
-// View renderiza la pantalla.
 func (m HistoryScreen) View() string {
-	header := styles.Title.Render("📜 Historial") + "\n\n"
-
 	switch {
 	case m.loading:
-		return header + styles.Subtitle.Render("Cargando ejecuciones...") + "\n"
+		return states.Loading("historial")
 	case m.err != nil:
-		return header + styles.ErrorStyle.Render("Error: ") + m.err.Error() + "\n"
+		return states.Error(m.err)
 	case len(m.list.Items()) == 0:
-		return header + styles.Subtitle.Render("(sin ejecuciones registradas)") + "\n"
+		return states.Empty("Sin ejecuciones registradas", "Ejecuta una task para empezar")
 	}
-
-	footer := "\n" + styles.Help.Render(
-		styles.Key.Render("↑↓")+" navegar  ·  "+
-			styles.Key.Render("Enter")+" ver  ·  "+
-			styles.Key.Render("/")+" filtrar  ·  "+
-			styles.Key.Render("h/Esc")+" volver  ·  "+
-			styles.Key.Render("q")+" salir",
-	)
-
-	return header + m.list.View() + footer
+	return m.list.View()
 }
