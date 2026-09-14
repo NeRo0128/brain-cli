@@ -17,7 +17,8 @@ logging:
   max_size_mb: 100
 
 ui:
-  theme: dark
+  theme: brain
+  brand_style: ascii
 
 scripts:
   custom_dir: scripts

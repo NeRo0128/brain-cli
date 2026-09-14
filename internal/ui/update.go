@@ -7,7 +7,9 @@ import (
 	toasts "github.com/NeRo0128/brain-cli/internal/ui/components/toast"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/screens"
-	tea "github.com/charmbracelet/bubbletea"
+	"github.com/NeRo0128/brain-cli/internal/ui/styles"
+	"github.com/NeRo0128/brain-cli/internal/ui/theme"
+	tea "charm.land/bubbletea/v2"
 )
 
 // Update procesa todos los mensajes de la aplicación.
@@ -31,7 +33,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case pushMsg:
 		m.stack = append(m.stack, msg.screen)
-		return m, tea.Batch(toastCmd, tea.WindowSize())
+		return m, tea.Batch(toastCmd, func() tea.Msg { return tea.RequestWindowSize() })
 
 	case popMsg:
 		if len(m.stack) > 1 {
@@ -41,7 +43,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case replaceMsg:
 		m.setTop(msg.screen)
-		return m, tea.Batch(toastCmd, tea.WindowSize())
+		return m, tea.Batch(toastCmd, func() tea.Msg { return tea.RequestWindowSize() })
 	}
 
 	// --- 1. Navegación desde screens ---
@@ -53,32 +55,50 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, toastCmd
 
 	case screens.OpenDetailMsg:
-		d := screens.NewDetailScreen(msg.Task, m.deps.ToolRepo, m.deps.Log)
+		s := msg.Styles
+		if s == nil {
+			s = m.deps.Styles
+		}
+		d := screens.NewDetailScreen(msg.Task, m.deps.ToolRepo, m.deps.Log, s)
 		return m, tea.Batch(toastCmd, push(d), d.Init())
 
 	case screens.OpenHistoryMsg:
-		h := screens.NewHistoryScreen(m.deps.ExecRepo, m.deps.TaskRepo)
+		s := msg.Styles
+		if s == nil {
+			s = m.deps.Styles
+		}
+		h := screens.NewHistoryScreen(m.deps.ExecRepo, m.deps.TaskRepo, s)
 		return m, tea.Batch(toastCmd, push(h), h.Init())
 
 	case screens.OpenResultMsg:
-		r := screens.NewResultScreen(msg.TaskName, msg.Exec)
+		r := screens.NewResultScreen(msg.TaskName, msg.Exec, m.deps.Styles)
 		return m, tea.Batch(toastCmd, replace(r))
 
 	case screens.OpenFormMsg:
+		s := msg.Styles
+		if s == nil {
+			s = m.deps.Styles
+		}
 		f := screens.NewFormScreen(
 			msg.Task,
 			m.deps.Manager,
 			m.deps.ToolRepo,
 			m.deps.Interpreter,
 			m.deps.Log,
+			s,
 		)
 		return m, tea.Batch(toastCmd, push(f), f.Init())
 
 	case screens.OpenToolPickerMsg:
+		s := msg.Styles
+		if s == nil {
+			s = m.deps.Styles
+		}
 		p := screens.NewToolPickerScreen(
 			m.deps.ToolRepo,
 			msg.CurrentID,
 			msg.FilterType,
+			s,
 		)
 		return m, tea.Batch(toastCmd, push(p), p.Init())
 
@@ -100,7 +120,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(toastCmd, cmd, toasts.ShowSuccess("Task guardada"))
 
 	case screens.OpenConfirmMsg:
-		c := screens.NewConfirm(msg.Title, msg.Message, msg.Action)
+		s := msg.Styles
+		if s == nil {
+			s = m.deps.Styles
+		}
+		c := screens.NewConfirm(msg.Title, msg.Message, msg.Action, s)
 		return m, tea.Batch(toastCmd, push(c), c.Init())
 
 	case screens.ConfirmYesMsg:
@@ -119,7 +143,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(toastCmd, cmd, toasts.ShowSuccess("Task borrada"))
 
 	case screens.OpenToolFormMsg:
-		f := screens.NewToolFormScreen(msg.Tool, m.deps.ToolManager, m.deps.Log)
+		s := msg.Styles
+		if s == nil {
+			s = m.deps.Styles
+		}
+		f := screens.NewToolFormScreen(msg.Tool, m.deps.ToolManager, m.deps.Log, s)
 		return m, tea.Batch(toastCmd, push(f), f.Init())
 
 	case screens.ToolFormSavedMsg:
@@ -160,7 +188,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// --- 2. Teclas globales ---
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+	if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
 		switch keyMsg.String() {
 		case "ctrl+c":
 			if m.cancelExec != nil {
@@ -184,11 +212,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, toastCmd
 			}
+
+		case "t":
+			if !m.executing {
+				nextName := theme.Next(m.styles.Theme.Name)
+				next := theme.Get(nextName)
+				s := styles.New(next, m.styles.Dark)
+				m.styles = &s
+				m.toast.SetPalette(next.Resolve(s.Dark))
+				return m, tea.Batch(toastCmd, toasts.ShowSuccess("Tema: "+nextName))
+			}
+			return m, toastCmd
 		}
 	}
 
 	// --- 3. Traducción KeyMsg → ActionMsg ---
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+	if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
 		top := m.top()
 		for _, id := range top.Keys() {
 			if m.deps.Keys.Matches(id, keyMsg.String()) {

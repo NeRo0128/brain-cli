@@ -2,12 +2,11 @@ package toast
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
-
-	"github.com/NeRo0128/brain-cli/internal/ui/styles"
+	"charm.land/lipgloss/v2"
 )
 
 const (
@@ -30,7 +29,7 @@ func (m Model) View() string {
 	}
 	blocks := make([]string, 0, len(m.toasts))
 	for _, t := range m.toasts {
-		blocks = append(blocks, renderBox(t))
+		blocks = append(blocks, m.renderBox(t))
 	}
 	// Alineados a la derecha entre sí.
 	return lipgloss.JoinVertical(lipgloss.Right, blocks...)
@@ -42,8 +41,8 @@ func (m Model) View() string {
 //	│ ✓ Task guardada                │
 //	│ ━━━━━━━━━━━━━━╸━━━━━━  2s      │
 //	╰────────────────────────────────╯
-func renderBox(t toast) string {
-	icon, color := iconAndColor(t.level)
+func (m Model) renderBox(t toast) string {
+	icon, clr := m.iconAndColor(t.level)
 
 	// Tiempo restante (0 si ya expiró).
 	remaining := time.Until(t.expires)
@@ -73,10 +72,10 @@ func renderBox(t toast) string {
 	timeStr := fmt.Sprintf("%ds", secs)
 
 	// Estilos por nivel.
-	iconStyle := lipgloss.NewStyle().Foreground(color).Bold(true)
-	barStyle := lipgloss.NewStyle().Foreground(color)
-	timeStyle := lipgloss.NewStyle().Foreground(styles.Muted)
-	msgStyle := lipgloss.NewStyle().Foreground(styles.Text)
+	iconStyle := lipgloss.NewStyle().Foreground(clr).Bold(true)
+	barStyle := lipgloss.NewStyle().Foreground(clr)
+	timeStyle := lipgloss.NewStyle().Foreground(m.palette.Muted)
+	msgStyle := lipgloss.NewStyle().Foreground(m.palette.Text)
 
 	// Línea 1: icono + mensaje (truncado si hace falta).
 	// Reservamos 2 columnas para "icon + espacio".
@@ -91,7 +90,7 @@ func renderBox(t toast) string {
 	// Caja con borde redondeado, color por nivel, padding lateral 1.
 	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(color).
+		BorderForeground(clr).
 		Padding(0, 1).
 		Width(boxContentWidth)
 
@@ -99,16 +98,16 @@ func renderBox(t toast) string {
 }
 
 // iconAndColor devuelve el icono y color según el nivel.
-func iconAndColor(l Level) (string, lipgloss.TerminalColor) {
+func (m Model) iconAndColor(l Level) (string, color.Color) {
 	switch l {
 	case LevelSuccess:
-		return "✓", styles.Success
+		return "✓", m.palette.Success
 	case LevelWarning:
-		return "⚠", styles.Warning
+		return "⚠", m.palette.Warning
 	case LevelError:
-		return "✗", styles.Error
+		return "✗", m.palette.Error
 	default:
-		return "•", styles.Primary
+		return "•", m.palette.Primary
 	}
 }
 

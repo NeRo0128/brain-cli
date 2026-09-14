@@ -5,9 +5,10 @@ package frame
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
@@ -26,47 +27,47 @@ const (
 type HeaderData struct {
 	AppName       string
 	Version       string
+	BrandStyle    string // "ascii" | "minimal" | "none"
 	AIStatus      AIStatus
 	TaskCount     int
 	FavoriteCount int
 }
-
-// Estilos locales del header (no contaminan styles global).
-var (
-	headerBrandStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(styles.Primary)
-
-	headerMutedStyle = lipgloss.NewStyle().
-				Foreground(styles.Muted)
-
-	headerFavoriteStyle = lipgloss.NewStyle().
-				Foreground(styles.Warning).
-				Bold(true)
-)
 
 // Header devuelve UNA línea con el chrome superior.
 //
 //	🧠 Brain CLI v2.0               ● IA ready  12 tasks  3★
 //
 // Si width < 80, oculta la parte derecha para no apretar la marca.
-func Header(d HeaderData, width int) string {
+func Header(d HeaderData, s *styles.Styles, width int) string {
+	p := s.Theme.Resolve(s.Dark)
+
 	// --- Izquierda: marca + versión ---
-	left := headerBrandStyle.Render("🧠 " + d.AppName)
-	if d.Version != "" {
-		left += " " + headerMutedStyle.Render("v"+d.Version)
+	var left string
+	switch d.BrandStyle {
+	case "ascii":
+		left = lipgloss.NewStyle().Bold(true).Foreground(p.Primary).Render("BrainCLI")
+		if d.Version != "" {
+			left += " " + s.Subtitle.Render("v"+d.Version)
+		}
+	case "none":
+		left = ""
+	default: // "minimal" or unset
+		left = lipgloss.NewStyle().Bold(true).Foreground(p.Primary).Render("🧠 " + d.AppName)
+		if d.Version != "" {
+			left += " " + s.Subtitle.Render("v" + d.Version)
+		}
 	}
 
 	// --- Derecha: estado IA + contadores ---
 	right := ""
 	if width >= 80 {
-		right = renderAIStatus(d.AIStatus)
+		right = renderAIStatus(d.AIStatus, s)
 		if d.TaskCount > 0 {
-			right += "  " + headerMutedStyle.Render(
+			right += "  " + s.Subtitle.Render(
 				fmt.Sprintf("%d tasks", d.TaskCount))
 		}
 		if d.FavoriteCount > 0 {
-			right += "  " + headerFavoriteStyle.Render(
+			right += "  " + lipgloss.NewStyle().Bold(true).Foreground(p.Warning).Render(
 				fmt.Sprintf("%d★", d.FavoriteCount))
 		}
 	}
@@ -79,30 +80,38 @@ func Header(d HeaderData, width int) string {
 	avail := width - leftW - rightW - 2
 	if avail < 1 {
 		// No cabe todo: priorizar izquierda, truncar derecha.
-		return " " + left
+		if leftW > 0 {
+			return " " + left
+		}
+		return " " + right + " "
 	}
 
+	if leftW == 0 {
+		return " " + right + " "
+	}
 	return " " + left + strings.Repeat(" ", avail) + right + " "
 }
 
 // renderAIStatus compone el indicador de IA con icono + color.
-func renderAIStatus(s AIStatus) string {
+func renderAIStatus(status AIStatus, s *styles.Styles) string {
+	p := s.Theme.Resolve(s.Dark)
+
 	var icon string
-	var color lipgloss.TerminalColor
-	switch s {
+	var clr color.Color
+	switch status {
 	case AIReady:
-		icon, color = "●", styles.Success
+		icon, clr = "●", p.Success
 	case AIOffline:
-		icon, color = "○", styles.Warning
+		icon, clr = "○", p.Warning
 	default:
-		icon, color = "○", styles.Muted
+		icon, clr = "○", p.Muted
 	}
-	dot := lipgloss.NewStyle().Foreground(color).Render(icon)
-	label := headerMutedStyle.Render(" IA ready")
-	if s == AIOffline {
-		label = headerMutedStyle.Render(" IA offline")
-	} else if s == AIDisabled {
-		label = headerMutedStyle.Render(" IA off")
+	dot := lipgloss.NewStyle().Foreground(clr).Render(icon)
+	label := s.Subtitle.Render(" IA ready")
+	if status == AIOffline {
+		label = s.Subtitle.Render(" IA offline")
+	} else if status == AIDisabled {
+		label = s.Subtitle.Render(" IA off")
 	}
 	return dot + label
 }

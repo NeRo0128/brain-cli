@@ -6,6 +6,7 @@ import (
 	coretask "github.com/NeRo0128/brain-cli/internal/core/task"
 	"github.com/NeRo0128/brain-cli/internal/core/tool"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
+	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 	taskuc "github.com/NeRo0128/brain-cli/internal/usecases/task"
 	tooluc "github.com/NeRo0128/brain-cli/internal/usecases/tool"
 	"github.com/rs/zerolog"
@@ -24,6 +25,7 @@ type Deps struct {
 	ExecRepo    execution.Repository
 	Keys        *keys.Registry
 	Log         zerolog.Logger
+	Styles      *styles.Styles
 
 	Interpreter []tool.Interpreter
 }

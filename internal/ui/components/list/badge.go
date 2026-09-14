@@ -3,9 +3,12 @@
 package list
 
 import (
-	"github.com/charmbracelet/lipgloss"
+	"image/color"
+
+	"charm.land/lipgloss/v2"
 
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
+	"github.com/NeRo0128/brain-cli/internal/ui/theme"
 )
 
 // BadgeStyle clasifica el color semántico de un badge.
@@ -26,25 +29,25 @@ type Badge struct {
 }
 
 // Render devuelve el badge con su color.
-func (b Badge) Render() string {
+func (b Badge) Render(s *styles.Styles) string {
 	return lipgloss.NewStyle().
-		Foreground(colorForBadge(b.Style)).
+		Foreground(colorForBadge(b.Style, s.Theme.Resolve(s.Dark))).
 		Faint(true).
 		Render("[" + b.Text + "]")
 }
 
-func colorForBadge(s BadgeStyle) lipgloss.TerminalColor {
+func colorForBadge(s BadgeStyle, p theme.Palette) color.Color {
 	switch s {
 	case BadgeInfo:
-		return styles.Secondary
+		return p.Secondary
 	case BadgeSuccess:
-		return styles.Success
+		return p.Success
 	case BadgeWarning:
-		return styles.Warning
+		return p.Warning
 	case BadgeDanger:
-		return styles.Error
+		return p.Error
 	default:
-		return styles.Muted
+		return p.Muted
 	}
 }
 
@@ -101,13 +104,13 @@ func CategoryBadge(c string) Badge {
 }
 
 // joinBadges renderiza una lista de badges separados por espacio.
-func joinBadges(badges []Badge) string {
+func joinBadges(badges []Badge, s *styles.Styles) string {
 	if len(badges) == 0 {
 		return ""
 	}
-	out := badges[0].Render()
+	out := badges[0].Render(s)
 	for _, b := range badges[1:] {
-		out += " " + b.Render()
+		out += " " + b.Render(s)
 	}
 	return out
 }

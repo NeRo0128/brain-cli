@@ -2,12 +2,13 @@ package list
 
 import (
 	"fmt"
+	"image/color"
 	"io"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
@@ -20,7 +21,7 @@ type Row struct {
 	// Prefix aparece antes del título: "★ " favorito, "✓ " estado.
 	Prefix string
 	// PrefixColor tiñe el prefix. nil = color del título.
-	PrefixColor lipgloss.TerminalColor
+	PrefixColor color.Color
 
 	// Title es el texto principal (1 línea).
 	Title string
@@ -42,16 +43,18 @@ type RowProvider interface {
 }
 
 // Delegate es el renderizador unificado. Alto 2 líneas + 1 de spacing.
-type Delegate struct{}
+type Delegate struct {
+	styles *styles.Styles
+}
 
 // New construye el delegate.
-func New() Delegate { return Delegate{} }
+func New(s *styles.Styles) Delegate { return Delegate{styles: s} }
 
 func (Delegate) Height() int                             { return 2 }
 func (Delegate) Spacing() int                            { return 1 }
 func (Delegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 
-func (Delegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
+func (d Delegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
 	rp, ok := item.(RowProvider)
 	if !ok {
 		// Fallback: muestra el Title() del item.
@@ -61,27 +64,29 @@ func (Delegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
 	row := rp.Row()
 	selected := index == m.Index()
 
+	p := d.styles.Theme.Resolve(d.styles.Dark)
+
 	// --- Estilos ---
 	cursor := "  "
-	titleStyle := lipgloss.NewStyle().Foreground(styles.Text)
+	titleStyle := lipgloss.NewStyle().Foreground(p.Text)
 	if selected {
 		cursor = "▶ "
-		titleStyle = titleStyle.Bold(true).Foreground(styles.Primary)
+		titleStyle = titleStyle.Bold(true).Foreground(p.Primary)
 	}
 
 	// --- Prefix ---
 	prefix := ""
 	if row.Prefix != "" {
-		c := row.PrefixColor
-		if c == nil {
-			c = styles.Text
+		c := p.Text
+		if row.PrefixColor != nil {
+			c = row.PrefixColor
 		}
 		prefix = lipgloss.NewStyle().Foreground(c).Render(row.Prefix) + " "
 	}
 
 	// --- Línea 1 ---
 	line1Left := cursor + prefix + titleStyle.Render(row.Title)
-	line1Right := joinBadges(row.Badges)
+	line1Right := joinBadges(row.Badges, d.styles)
 
 	width := m.Width() - 2 // margen lateral
 	leftW := lipgloss.Width(line1Left)
@@ -100,13 +105,13 @@ func (Delegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
 	indent := "   "
 	line2 := indent
 	if row.Subtitle != "" {
-		line2 += styles.Subtitle.Render(row.Subtitle)
+		line2 += d.styles.Subtitle.Render(row.Subtitle)
 	}
 	if row.Meta != "" {
 		if row.Subtitle != "" {
-			line2 += styles.Subtitle.Render(" · ")
+			line2 += d.styles.Subtitle.Render(" · ")
 		}
-		line2 += styles.Subtitle.Render(row.Meta)
+		line2 += d.styles.Subtitle.Render(row.Meta)
 	}
 	if row.Subtitle == "" && row.Meta == "" {
 		line2 = "" // sin línea 2

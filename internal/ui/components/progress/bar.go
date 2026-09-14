@@ -8,7 +8,7 @@ package progress
 import (
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
@@ -19,14 +19,15 @@ type Model struct {
 	percent    float64
 	determined bool
 	offset     int
+	styles     *styles.Styles
 }
 
 // New construye una barra indeterminada de `width` columnas.
-func New(width int) Model {
+func New(width int, s *styles.Styles) Model {
 	if width < 4 {
 		width = 4
 	}
-	return Model{width: width}
+	return Model{width: width, styles: s}
 }
 
 // WithWidth devuelve una copia con nuevo ancho.
@@ -64,21 +65,21 @@ func (m Model) View() string {
 	if m.width <= 0 {
 		return ""
 	}
+	p := m.styles.Theme.Resolve(m.styles.Dark)
+
+	fillStyle := lipgloss.NewStyle().Foreground(p.Primary)
+	dimStyle := lipgloss.NewStyle().Foreground(p.Muted).Faint(true)
+	brightStyle := lipgloss.NewStyle().Foreground(p.Primary).Bold(true)
+
 	if m.determined {
-		return renderDeterminate(m.width, m.percent)
+		return renderDeterminate(m.width, m.percent, fillStyle, dimStyle)
 	}
-	return renderIndeterminate(m.width, m.offset)
+	return renderIndeterminate(m.width, m.offset, dimStyle, brightStyle)
 }
 
 // --- Implementación ---
 
-var (
-	fillStyle   = lipgloss.NewStyle().Foreground(styles.Primary)
-	dimStyle    = lipgloss.NewStyle().Foreground(styles.Muted).Faint(true)
-	brightStyle = lipgloss.NewStyle().Foreground(styles.Primary).Bold(true)
-)
-
-func renderDeterminate(w int, p float64) string {
+func renderDeterminate(w int, p float64, fill, dim lipgloss.Style) string {
 	filled := int(float64(w) * p)
 	if filled > w {
 		filled = w
@@ -86,13 +87,13 @@ func renderDeterminate(w int, p float64) string {
 	if filled < 0 {
 		filled = 0
 	}
-	return fillStyle.Render(strings.Repeat("━", filled)) +
-		dimStyle.Render(strings.Repeat("━", w-filled))
+	return fill.Render(strings.Repeat("━", filled)) +
+		dim.Render(strings.Repeat("━", w-filled))
 }
 
 // renderIndeterminate dibuja un segmento brillante que se mueve
 // de izquierda a derecha en un ciclo continuo.
-func renderIndeterminate(w, offset int) string {
+func renderIndeterminate(w, offset int, dim, bright lipgloss.Style) string {
 	seg := w / 5
 	if seg < 3 {
 		seg = 3
@@ -118,7 +119,7 @@ func renderIndeterminate(w, offset int) string {
 		start = w
 	}
 
-	return dimStyle.Render(strings.Repeat("━", start)) +
-		brightStyle.Render(strings.Repeat("━", end-start)) +
-		dimStyle.Render(strings.Repeat("━", w-end))
+	return dim.Render(strings.Repeat("━", start)) +
+		bright.Render(strings.Repeat("━", end-start)) +
+		dim.Render(strings.Repeat("━", w-end))
 }

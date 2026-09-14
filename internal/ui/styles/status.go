@@ -2,43 +2,13 @@ package styles
 
 import (
 	"fmt"
+	"image/color"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/NeRo0128/brain-cli/internal/ui/theme"
 )
 
-// StatusIcon devuelve el símbolo y el color para un estado.
-// Acepta tanto estados de Execution como strings cortos.
-func StatusIcon(status string) (string, lipgloss.TerminalColor) {
-	switch status {
-	case "completed", "success", "ok":
-		return "✓", Success
-	case "failed", "error":
-		return "✗", Error
-	case "cancelled", "canceled", "warn":
-		return "⊘", Warning
-	case "running", "pending":
-		return "◐", Primary
-	}
-	return "•", Muted
-}
-
-// Badge renderiza un texto con estilo discreto para metadatos.
-// Uso: Badge("bash", Secondary)
-func Badge(text string, color lipgloss.TerminalColor) string {
-	return lipgloss.NewStyle().
-		Foreground(color).
-		Faint(true).
-		Render("[" + text + "]")
-}
-
 // HumanTime formatea un timestamp de forma relativa si es reciente.
-//
-//	<1m  → "ahora"
-//	<1h  → "hace 5m"
-//	<24h → "hace 3h"
-//	<7d  → "hace 2d"
-//	≥7d  → "2026-09-05"
 func HumanTime(t time.Time) string {
 	if t.IsZero() {
 		return "—"
@@ -59,10 +29,6 @@ func HumanTime(t time.Time) string {
 }
 
 // HumanDuration formatea una duración de forma compacta.
-//
-//	<1s  → "850ms"
-//	<1m  → "1.2s"
-//	≥1m  → "1m23s"
 func HumanDuration(d time.Duration) string {
 	switch {
 	case d < time.Second:
@@ -76,11 +42,32 @@ func HumanDuration(d time.Duration) string {
 	}
 }
 
-// Styles base para reusar en components (evita recrear estilo por render).
+// ColorForStatus devuelve el color semántico para un estado.
+func ColorForStatus(status string, p theme.Palette) color.Color {
+	switch status {
+	case "completed", "success", "ok":
+		return p.Success
+	case "failed", "error":
+		return p.Error
+	case "cancelled", "canceled", "warn":
+		return p.Warning
+	case "running", "pending":
+		return p.Primary
+	}
+	return p.Muted
+}
 
-var (
-	IconSuccess = lipgloss.NewStyle().Foreground(Success)
-	IconWarning = lipgloss.NewStyle().Foreground(Warning)
-	IconError   = lipgloss.NewStyle().Foreground(Error)
-	IconInfo    = lipgloss.NewStyle().Foreground(Primary)
-)
+// IconForStatus devuelve el icono para un estado.
+func IconForStatus(status string) string {
+	switch status {
+	case "completed", "success", "ok":
+		return "✓"
+	case "failed", "error":
+		return "✗"
+	case "cancelled", "canceled", "warn":
+		return "⊘"
+	case "running", "pending":
+		return "◐"
+	}
+	return "•"
+}

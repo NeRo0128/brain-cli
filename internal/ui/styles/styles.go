@@ -1,112 +1,90 @@
 package styles
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	lipgloss "charm.land/lipgloss/v2"
 
-// Estilos compuestos.
-//
-// Los COLORES viven en tokens.go.
-// Los HELPERS de estado viven en status.go.
-// Aquí solo van estilos reusables por 2+ screens.
-//
-// Regla: si un estilo solo lo usa UNA screen, va en su archivo.
-
-// ============================================================
-// Encabezados
-// ============================================================
-
-// Title: título principal de una screen.
-var Title = lipgloss.NewStyle().
-	Bold(true).
-	Foreground(Primary).
-	Padding(0, 1)
-
-// Subtitle: texto secundario, contexto, contadores.
-var Subtitle = lipgloss.NewStyle().
-	Foreground(Muted)
-
-// SectionHeader: encabezado de sección dentro de una screen.
-var SectionHeader = lipgloss.NewStyle().
-	Bold(true).
-	Foreground(Secondary).
-	MarginTop(1)
-
-// ============================================================
-// Contenido
-// ============================================================
-
-// Key: teclas de atajo en el footer o en línea.
-var Key = lipgloss.NewStyle().
-	Bold(true).
-	Foreground(Secondary)
-
-// Help: bloque de ayuda (usado por el footer de screens).
-var Help = lipgloss.NewStyle().
-	Foreground(Muted).
-	Padding(1, 2)
-
-// ============================================================
-// Estado (iconos / badges)
-// ============================================================
-
-var (
-	SuccessStyle = lipgloss.NewStyle().Foreground(Success).Bold(true)
-	ErrorStyle   = lipgloss.NewStyle().Foreground(Error).Bold(true)
-	WarningStyle = lipgloss.NewStyle().Foreground(Warning).Bold(true)
+	"github.com/NeRo0128/brain-cli/internal/ui/theme"
 )
 
-// ============================================================
-// Específicos de screens concretas
-// ============================================================
+// Styles agrupa todos los estilos visuales construidos desde un Theme.
+//
+// Uso:
+//
+//	s := styles.New(theme.Get("brain"), true)
+//	s.Title.Render("Hola")
+type Styles struct {
+	Theme theme.Theme
+	Dark  bool
 
-// SpinnerStyle: usado por ExecutingScreen.
-var SpinnerStyle = lipgloss.NewStyle().
-	Foreground(Primary).
-	Bold(true)
+	Title         lipgloss.Style
+	Subtitle      lipgloss.Style
+	SectionHeader lipgloss.Style
+	Key           lipgloss.Style
+	Help          lipgloss.Style
 
-// TimerStyle: cronómetro de ExecutingScreen.
-var TimerStyle = lipgloss.NewStyle().
-	Foreground(Secondary)
+	SuccessStyle lipgloss.Style
+	ErrorStyle   lipgloss.Style
+	WarningStyle lipgloss.Style
 
-// ============================================================
-// Inputs — foco visible en ambos temas
-// ============================================================
+	SpinnerStyle lipgloss.Style
+	TimerStyle   lipgloss.Style
 
-// InputFocusedStyle: borde inferior acentuado, texto normal.
-// El fondo + borde hacen visible el foco incluso sin color.
-var InputFocusedStyle = lipgloss.NewStyle().
-	Foreground(Text).
-	Border(lipgloss.NormalBorder(), false, false, true, false).
-	BorderForeground(InputFocused)
+	InputFocusedStyle lipgloss.Style
+	InputBlurredStyle lipgloss.Style
 
-// InputBlurredStyle: borde inferior tenue, texto atenuado.
-var InputBlurredStyle = lipgloss.NewStyle().
-	Foreground(Muted).
-	Border(lipgloss.NormalBorder(), false, false, true, false).
-	BorderForeground(InputBlurred)
+	BorderStyle lipgloss.Style
 
-// ============================================================
-// Paneles / bordes
-// ============================================================
+	BadgeMuted  lipgloss.Style
+	KeyHintKey  lipgloss.Style
+	KeyHintText lipgloss.Style
 
-// BorderStyle: caja redondeada con padding, para agrupar bloques.
-var BorderStyle = lipgloss.NewStyle().
-	Border(lipgloss.RoundedBorder()).
-	BorderForeground(Border).
-	Padding(0, 1)
+	IconSuccess lipgloss.Style
+	IconWarning lipgloss.Style
+	IconError   lipgloss.Style
+	IconInfo    lipgloss.Style
+}
 
-// ============================================================
-// Badges y metadatos
-// ============================================================
+// New construye el set de estilos desde un tema y el modo del terminal.
+func New(t theme.Theme, isDark bool) Styles {
+	p := t.Resolve(isDark)
+	return Styles{
+		Theme: t,
+		Dark:  isDark,
 
-// BadgeMuted: texto tenue entre corchetes para metadatos.
-var BadgeMuted = lipgloss.NewStyle().
-	Foreground(Muted).
-	Faint(true)
+		Title:         lipgloss.NewStyle().Bold(true).Foreground(p.Primary).Padding(0, 1),
+		Subtitle:      lipgloss.NewStyle().Foreground(p.Muted),
+		SectionHeader: lipgloss.NewStyle().Bold(true).Foreground(p.Secondary).MarginTop(1),
+		Key:           lipgloss.NewStyle().Bold(true).Foreground(p.Secondary),
+		Help:          lipgloss.NewStyle().Foreground(p.Muted).Padding(1, 2),
 
-// KeyHint: "Enter" resaltado, "guardar" atenuado — para footers ricos.
-var KeyHintKey = lipgloss.NewStyle().
-	Bold(true).
-	Foreground(Secondary)
+		SuccessStyle: lipgloss.NewStyle().Foreground(p.Success).Bold(true),
+		ErrorStyle:   lipgloss.NewStyle().Foreground(p.Error).Bold(true),
+		WarningStyle: lipgloss.NewStyle().Foreground(p.Warning).Bold(true),
 
-var KeyHintText = lipgloss.NewStyle().
-	Foreground(Muted)
+		SpinnerStyle: lipgloss.NewStyle().Foreground(p.Primary).Bold(true),
+		TimerStyle:   lipgloss.NewStyle().Foreground(p.Secondary),
+
+		InputFocusedStyle: lipgloss.NewStyle().
+			Foreground(p.Text).
+			Border(lipgloss.NormalBorder(), false, false, true, false).
+			BorderForeground(p.InputFocused),
+		InputBlurredStyle: lipgloss.NewStyle().
+			Foreground(p.Muted).
+			Border(lipgloss.NormalBorder(), false, false, true, false).
+			BorderForeground(p.InputBlurred),
+
+		BorderStyle: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(p.Border).
+			Padding(0, 1),
+
+		BadgeMuted:  lipgloss.NewStyle().Foreground(p.Muted).Faint(true),
+		KeyHintKey:  lipgloss.NewStyle().Bold(true).Foreground(p.Secondary),
+		KeyHintText: lipgloss.NewStyle().Foreground(p.Muted),
+
+		IconSuccess: lipgloss.NewStyle().Foreground(p.Success),
+		IconWarning: lipgloss.NewStyle().Foreground(p.Warning),
+		IconError:   lipgloss.NewStyle().Foreground(p.Error),
+		IconInfo:    lipgloss.NewStyle().Foreground(p.Primary),
+	}
+}

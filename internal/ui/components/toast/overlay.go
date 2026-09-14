@@ -3,7 +3,7 @@ package toast
 import (
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // Overlay superpone `layer` (los toasts) sobre `base` (la vista actual).

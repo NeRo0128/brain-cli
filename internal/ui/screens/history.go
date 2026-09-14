@@ -10,9 +10,8 @@ import (
 	"github.com/NeRo0128/brain-cli/internal/ui/components/states"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
 )
 
 type historyLoadedMsg struct {
@@ -20,8 +19,6 @@ type historyLoadedMsg struct {
 	taskNames  map[string]string
 	err        error
 }
-
-// --- Item ---
 
 type executionItem struct {
 	exec     *execution.Execution
@@ -34,35 +31,6 @@ func (i executionItem) FilterValue() string {
 	return i.taskName + " " + string(i.exec.Status)
 }
 
-func (i executionItem) Row() uilist.Row {
-	icon, color := statusIconAndColor(i.exec.Status)
-	return uilist.Row{
-		Prefix:      icon,
-		PrefixColor: color,
-		Title:       i.taskName,
-		Badges:      []uilist.Badge{uilist.StatusBadge(string(i.exec.Status))},
-		Subtitle:    styles.HumanTime(i.exec.StartedAt),
-		Meta:        styles.HumanDuration(i.exec.Duration()),
-	}
-}
-
-// statusIconAndColor centraliza iconos de estado.
-func statusIconAndColor(s execution.Status) (string, lipgloss.TerminalColor) {
-	switch s {
-	case execution.StatusCompleted:
-		return "✓", styles.Success
-	case execution.StatusFailed:
-		return "✗", styles.Error
-	case execution.StatusCancelled:
-		return "⊘", styles.Warning
-	case execution.StatusRunning, execution.StatusPending:
-		return "◐", styles.Primary
-	}
-	return "•", styles.Muted
-}
-
-// --- Pantalla ---
-
 type HistoryScreen struct {
 	list    list.Model
 	loading bool
@@ -71,22 +39,24 @@ type HistoryScreen struct {
 	execRepo execution.Repository
 	taskRepo coretask.Repository
 
-	names map[string]string
+	names  map[string]string
+	styles *styles.Styles
 }
 
-func NewHistoryScreen(execRepo execution.Repository, taskRepo coretask.Repository) HistoryScreen {
-	l := list.New(nil, uilist.New(), 80, 20)
+func NewHistoryScreen(execRepo execution.Repository, taskRepo coretask.Repository, s *styles.Styles) HistoryScreen {
+	l := list.New(nil, uilist.New(s), 80, 20)
 	l.Title = "Historial"
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(false)
 	l.SetFilteringEnabled(true)
-	l.Styles.Title = styles.Title
-	l.Styles.HelpStyle = styles.Help
+	l.Styles.Title = s.Title
+	l.Styles.HelpStyle = s.Help
 
 	return HistoryScreen{
 		list:     l,
 		execRepo: execRepo,
 		taskRepo: taskRepo,
+		styles:   s,
 		loading:  true,
 		names:    make(map[string]string),
 	}
@@ -98,10 +68,6 @@ func (m HistoryScreen) Init() tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		execs, err := execRepo.ListRecent(ctx, 100)
-		if err != nil {
-			return historyLoadedMsg{err: err}
-		}
 		tasks, err := taskRepo.List(ctx)
 		if err != nil {
 			return historyLoadedMsg{err: err}
@@ -110,9 +76,14 @@ func (m HistoryScreen) Init() tea.Cmd {
 		for _, t := range tasks {
 			names[t.ID] = t.Name
 		}
+
+		execs, err := execRepo.ListRecent(ctx, 100)
+		if err != nil {
+			return historyLoadedMsg{err: err}
+		}
 		return historyLoadedMsg{executions: execs, taskNames: names}
 	}
-	return tea.Batch(tea.WindowSize(), load)
+	return tea.Batch(func() tea.Msg { return tea.RequestWindowSize() }, load)
 }
 
 func (m HistoryScreen) Keys() []string {
@@ -123,16 +94,18 @@ func (m HistoryScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.list.SetSize(msg.Width-2, msg.Height-6)
-		return m, nil
 
 	case historyLoadedMsg:
 		m.loading = false
 		m.err = msg.err
 		if msg.err == nil {
-			m.names = msg.taskNames
-			m.setItems(msg.executions)
+			m.setItems(msg.executions, msg.taskNames)
 		}
 		return m, nil
+
+	case ReloadMsg:
+		m.loading = true
+		return m, m.Init()
 
 	case ActionMsg:
 		return m.handleAction(msg)
@@ -145,12 +118,6 @@ func (m HistoryScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 
 func (m HistoryScreen) handleAction(msg ActionMsg) (ScreenI, tea.Cmd) {
 	switch msg.ID {
-	case keys.NavConfirm:
-		exec, name := m.SelectedExecution()
-		if exec == nil {
-			return m, nil
-		}
-		return m, OpenResult(name, exec)
 	case keys.NavBack:
 		return m, Back()
 	case keys.ViewHelp:
@@ -159,18 +126,10 @@ func (m HistoryScreen) handleAction(msg ActionMsg) (ScreenI, tea.Cmd) {
 	return m, nil
 }
 
-func (m HistoryScreen) SelectedExecution() (*execution.Execution, string) {
-	it, ok := m.list.SelectedItem().(executionItem)
-	if !ok {
-		return nil, ""
-	}
-	return it.exec, it.taskName
-}
-
-func (m *HistoryScreen) setItems(execs []*execution.Execution) {
+func (m *HistoryScreen) setItems(execs []*execution.Execution, names map[string]string) {
 	items := make([]list.Item, len(execs))
 	for i, e := range execs {
-		name := m.names[e.TaskID]
+		name := names[e.TaskID]
 		if name == "" {
 			name = e.TaskID
 		}
@@ -179,14 +138,14 @@ func (m *HistoryScreen) setItems(execs []*execution.Execution) {
 	m.list.SetItems(items)
 }
 
-func (m HistoryScreen) View() string {
+func (m HistoryScreen) View() tea.View {
 	switch {
 	case m.loading:
-		return states.Loading("historial")
+		return tea.NewView(states.Loading(m.styles, "historial"))
 	case m.err != nil:
-		return states.Error(m.err)
+		return tea.NewView(states.Error(m.styles, m.err))
 	case len(m.list.Items()) == 0:
-		return states.Empty("Sin ejecuciones registradas", "Ejecuta una task para empezar")
+		return tea.NewView(states.Empty(m.styles, "Sin ejecuciones registradas", "Ejecuta una task para empezar"))
 	}
-	return m.list.View()
+	return tea.NewView(m.list.View())
 }

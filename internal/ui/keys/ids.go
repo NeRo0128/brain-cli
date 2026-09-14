@@ -38,4 +38,5 @@ const (
 	// --- App ---
 	AppQuit      = "app.quit"
 	AppInterrupt = "app.interrupt"
+	AppTheme     = "app.theme"
 )

@@ -11,20 +11,20 @@ import (
 //	Sin tareas
 //
 //	Pulsa n para crear la primera
-func Empty(title, hint string) string {
-	out := "\n\n  " + styles.Subtitle.Render(title)
+func Empty(s *styles.Styles, title, hint string) string {
+	out := "\n\n  " + s.Subtitle.Render(title)
 	if hint != "" {
-		out += "\n\n  " + styles.Key.Render(hint)
+		out += "\n\n  " + s.Key.Render(hint)
 	}
 	return out + "\n"
 }
 
 // Loading muestra un mensaje de carga.
-func Loading(what string) string {
-	return "\n\n  " + styles.Subtitle.Render("Cargando "+what+"...") + "\n"
+func Loading(s *styles.Styles, what string) string {
+	return "\n\n  " + s.Subtitle.Render("Cargando "+what+"...") + "\n"
 }
 
 // Error muestra un mensaje de error.
-func Error(err error) string {
-	return "\n\n  " + styles.ErrorStyle.Render("✗ ") + err.Error() + "\n"
+func Error(s *styles.Styles, err error) string {
+	return "\n\n  " + s.ErrorStyle.Render("✗ ") + err.Error() + "\n"
 }

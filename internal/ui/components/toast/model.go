@@ -10,7 +10,9 @@ package toast
 import (
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/NeRo0128/brain-cli/internal/ui/theme"
 )
 
 // --- Mensajes ---
@@ -51,8 +53,9 @@ const (
 
 // Model mantiene la cola de toasts visibles.
 type Model struct {
-	toasts []toast
-	nextID int
+	toasts  []toast
+	nextID  int
+	palette theme.Palette
 }
 
 type toast struct {
@@ -65,6 +68,9 @@ type toast struct {
 
 // NewModel construye un modelo vacío.
 func NewModel() Model { return Model{} }
+
+// SetPalette establece la paleta de colores para el renderizado.
+func (m *Model) SetPalette(p theme.Palette) { m.palette = p }
 
 // --- API ---
 

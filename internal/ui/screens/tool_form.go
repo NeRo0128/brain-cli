@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textarea"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/rs/zerolog"
 
 	coretool "github.com/NeRo0128/brain-cli/internal/core/tool"
@@ -72,18 +72,21 @@ type ToolFormScreen struct {
 	log     zerolog.Logger
 
 	width, height int
+	styles        *styles.Styles
 }
 
 func NewToolFormScreen(
 	tk *coretool.Tool,
 	manager *tooluc.Manager,
 	log zerolog.Logger,
+	s *styles.Styles,
 ) ToolFormScreen {
 	action := "crear"
 	if tk != nil {
 		action = "editar"
 	}
 	screenLog := log.With().Str("screen", "tool_form").Str("action", action).Logger()
+	p := s.Theme.Resolve(s.Dark)
 
 	f := ToolFormScreen{
 		editing:    tk,
@@ -91,27 +94,28 @@ func NewToolFormScreen(
 		log:        screenLog,
 		scriptType: coretool.ScriptTypeBash,
 		category:   coretool.CategoryUtils,
+		styles:     s,
 	}
 
 	f.nameInput = textinput.New()
 	f.nameInput.Placeholder = "mi-tool"
 	f.nameInput.CharLimit = 128
-	f.nameInput.Width = 60
+	f.nameInput.SetWidth(60)
 
 	f.descInput = textinput.New()
 	f.descInput.Placeholder = "Descripción breve..."
 	f.descInput.CharLimit = 256
-	f.descInput.Width = 80
+	f.descInput.SetWidth(80)
 
 	f.timeoutInput = textinput.New()
 	f.timeoutInput.Placeholder = "300"
 	f.timeoutInput.CharLimit = 6
-	f.timeoutInput.Width = 10
+	f.timeoutInput.SetWidth(10)
 
 	f.commandInput = textinput.New()
 	f.commandInput.Placeholder = "docker ps -a"
 	f.commandInput.CharLimit = 512
-	f.commandInput.Width = 80
+	f.commandInput.SetWidth(80)
 
 	ta := textarea.New()
 	ta.Placeholder = "#!/bin/bash\nset -e\n..."
@@ -119,16 +123,22 @@ func NewToolFormScreen(
 	ta.SetHeight(8)
 	ta.ShowLineNumbers = false
 	ta.CharLimit = 16384
-	ta.FocusedStyle.Base = lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(styles.InputFocused).
-		Padding(0, 1)
-	ta.FocusedStyle.CursorLine = lipgloss.NewStyle()
-	ta.BlurredStyle.Base = lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(styles.InputBlurred).
-		Padding(0, 1)
-	ta.BlurredStyle.CursorLine = lipgloss.NewStyle()
+	ta.SetStyles(textarea.Styles{
+		Focused: textarea.StyleState{
+			Base: lipgloss.NewStyle().
+				Border(lipgloss.NormalBorder()).
+				BorderForeground(p.InputFocused).
+				Padding(0, 1),
+			CursorLine: lipgloss.NewStyle(),
+		},
+		Blurred: textarea.StyleState{
+			Base: lipgloss.NewStyle().
+				Border(lipgloss.NormalBorder()).
+				BorderForeground(p.InputBlurred).
+				Padding(0, 1),
+			CursorLine: lipgloss.NewStyle(),
+		},
+	})
 	f.scriptArea = ta
 
 	if tk != nil {
@@ -149,7 +159,7 @@ func NewToolFormScreen(
 }
 
 func (m ToolFormScreen) Init() tea.Cmd {
-	return tea.Batch(tea.WindowSize(), textinput.Blink)
+	return tea.Batch(func() tea.Msg { return tea.RequestWindowSize() }, textinput.Blink)
 }
 
 func (m ToolFormScreen) Keys() []string {
@@ -186,14 +196,14 @@ func (m ToolFormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 		}
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return m.handleKey(msg)
 	}
 
 	return m.delegateToInput(msg)
 }
 
-func (m ToolFormScreen) handleKey(msg tea.KeyMsg) (ScreenI, tea.Cmd) {
+func (m ToolFormScreen) handleKey(msg tea.KeyPressMsg) (ScreenI, tea.Cmd) {
 	fields := m.visibleFields()
 	if len(fields) == 0 {
 		return m, nil
@@ -218,7 +228,7 @@ func (m ToolFormScreen) handleKey(msg tea.KeyMsg) (ScreenI, tea.Cmd) {
 			m.cycleSelect(+1)
 			return m, nil
 		}
-	case " ":
+	case "space":
 		if m.currentKind() == tfKindToggle {
 			m.sudo = !m.sudo
 			return m, nil
@@ -248,11 +258,11 @@ func (m ToolFormScreen) delegateToInput(msg tea.Msg) (ScreenI, tea.Cmd) {
 	return m, cmd
 }
 
-func (m ToolFormScreen) View() string {
+func (m ToolFormScreen) View() tea.View {
 	var b strings.Builder
 
 	if m.editing != nil {
-		b.WriteString("  " + styles.Subtitle.Render("ID: ") +
+		b.WriteString("  " + m.styles.Subtitle.Render("ID: ") +
 			strconv.Itoa(m.editing.ID) + "\n\n")
 	}
 
@@ -261,13 +271,13 @@ func (m ToolFormScreen) View() string {
 	}
 
 	if m.saving {
-		b.WriteString("\n  " + styles.Subtitle.Render("Guardando..."))
+		b.WriteString("\n  " + m.styles.Subtitle.Render("Guardando..."))
 	}
 	if m.err != nil {
-		b.WriteString("\n  " + styles.ErrorStyle.Render("✗ ") + m.err.Error())
+		b.WriteString("\n  " + m.styles.ErrorStyle.Render("✗ ") + m.err.Error())
 	}
 
-	return b.String()
+	return tea.NewView(b.String())
 }
 
 func (m ToolFormScreen) renderField(id toolFieldID, focused bool) string {
@@ -277,9 +287,9 @@ func (m ToolFormScreen) renderField(id toolFieldID, focused bool) string {
 	}
 
 	label := m.labelFor(id)
-	labelStyle := styles.Subtitle
+	labelStyle := m.styles.Subtitle
 	if focused {
-		labelStyle = styles.Key
+		labelStyle = m.styles.Key
 	}
 
 	// Textarea de script: bloque multi-línea.
@@ -295,15 +305,15 @@ func (m ToolFormScreen) renderField(id toolFieldID, focused bool) string {
 	case tfDesc:
 		value = m.descInput.View()
 	case tfType:
-		value = renderSelect(string(m.scriptType), focused)
+		value = renderSelect(string(m.scriptType), focused, m.styles)
 	case tfCategory:
-		value = renderSelect(string(m.category), focused)
+		value = renderSelect(string(m.category), focused, m.styles)
 	case tfCommand:
 		value = m.commandInput.View()
 	case tfTimeout:
 		value = m.timeoutInput.View()
 	case tfSudo:
-		value = renderToggle(m.sudo, focused)
+		value = renderToggle(m.sudo, focused, m.styles)
 	}
 
 	return cursor + labelStyle.Render(label) + "\n   " + value + "\n\n"

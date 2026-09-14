@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/NeRo0128/brain-cli/internal/ui/components/frame"
 	"github.com/NeRo0128/brain-cli/internal/ui/components/toast"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
@@ -11,10 +12,10 @@ import (
 )
 
 // View renderiza el estado completo de la aplicación.
-func (m Model) View() string {
+func (m Model) View() tea.View {
 	// --- Gate: terminal demasiado chica ---
 	if layout.ShouldGate(m.width, m.height) {
-		return m.renderGate()
+		return tea.NewView(m.renderGate())
 	}
 
 	// --- Contenido base ---
@@ -22,18 +23,20 @@ func (m Model) View() string {
 	if m.execErr != nil {
 		content = m.renderError()
 	} else {
-		content = m.top().View()
+		content = m.top().View().Content
 	}
 
 	// --- Frame ---
-	header := frame.Header(m.headerData(), m.width)
-	footer := frame.Footer(m.footerBindings(), m.width)
+	header := frame.Header(m.headerData(), m.styles, m.width)
+	footer := frame.Footer(m.footerBindings(), m.styles, m.width)
 
 	// --- Ensamblado (footer pegado abajo) ---
 	body := m.assembleBody(header, content, footer)
 
 	// --- Overlay del toast (esquina superior derecha) ---
-	return toast.Overlay(body, m.toast.View(), m.width)
+	v := tea.NewView(toast.Overlay(body, m.toast.View(), m.width))
+	v.AltScreen = true
+	return v
 }
 
 // --- Datos del header ---
@@ -44,9 +47,14 @@ func (m Model) View() string {
 // todavía no cacheamos esa info en el Model. Cuando se añada el
 // provider IA y se cacheen los contadores, se pueblan aquí.
 func (m Model) headerData() frame.HeaderData {
+	brandStyle := "minimal"
+	if m.deps.Cfg != nil {
+		brandStyle = m.deps.Cfg.UI.BrandStyle
+	}
 	return frame.HeaderData{
 		AppName:       m.deps.Cfg.App.Name,
 		Version:       m.deps.Version,
+		BrandStyle:    brandStyle,
 		AIStatus:      frame.AIDisabled,
 		TaskCount:     0,
 		FavoriteCount: 0,

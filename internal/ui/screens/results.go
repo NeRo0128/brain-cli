@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/NeRo0128/brain-cli/internal/core/execution"
 	"github.com/NeRo0128/brain-cli/internal/ui/components/states"
@@ -13,27 +13,25 @@ import (
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
 
-// ResultScreen muestra el resultado de una ejecución.
-//
-// [ACTUALIZADO] migrado a viewport.Model: scroll real, wrapping
-// automático, PageUp/PageDown nativos.
 type ResultScreen struct {
 	exec     *execution.Execution
 	taskName string
 
 	viewport viewport.Model
 	ready    bool
+	styles   *styles.Styles
 }
 
-func NewResultScreen(taskName string, exec *execution.Execution) ResultScreen {
+func NewResultScreen(taskName string, exec *execution.Execution, s *styles.Styles) ResultScreen {
 	return ResultScreen{
 		exec:     exec,
 		taskName: taskName,
+		styles:   s,
 	}
 }
 
 func (m ResultScreen) Init() tea.Cmd {
-	return tea.WindowSize()
+	return func() tea.Msg { return tea.RequestWindowSize() }
 }
 
 func (m ResultScreen) Keys() []string {
@@ -52,7 +50,7 @@ func (m ResultScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 		if vpH < 3 {
 			vpH = 3
 		}
-		m.viewport = viewport.New(vpW, vpH)
+		m.viewport = viewport.New(viewport.WithWidth(vpW), viewport.WithHeight(vpH))
 		m.viewport.SetContent(m.renderOutput())
 		m.ready = true
 		return m, nil
@@ -73,20 +71,20 @@ func (m ResultScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	return m, cmd
 }
 
-func (m ResultScreen) View() string {
+func (m ResultScreen) View() tea.View {
 	if !m.ready {
-		return states.Loading("resultado")
+		return tea.NewView(states.Loading(m.styles, "resultado"))
 	}
 
-	status := renderStatus(m.exec)
+	status := renderStatus(m.exec, m.styles)
 	meta := " · " + styles.HumanDuration(m.exec.Duration()) +
 		" · exit " + formatExitCode(m.exec.ExitCode)
 
 	var b strings.Builder
-	b.WriteString("  " + status + styles.Subtitle.Render(meta))
+	b.WriteString("  " + status + m.styles.Subtitle.Render(meta))
 	b.WriteString("\n\n")
 	b.WriteString(m.viewport.View())
-	return b.String()
+	return tea.NewView(b.String())
 }
 
 func (m ResultScreen) renderOutput() string {
@@ -97,16 +95,16 @@ func (m ResultScreen) renderOutput() string {
 	return strings.TrimRight(out, "\n")
 }
 
-func renderStatus(e *execution.Execution) string {
+func renderStatus(e *execution.Execution, s *styles.Styles) string {
 	switch e.Status {
 	case execution.StatusCompleted:
-		return styles.SuccessStyle.Render("✓ completado")
+		return s.SuccessStyle.Render("✓ completado")
 	case execution.StatusFailed:
-		return styles.ErrorStyle.Render("✗ falló")
+		return s.ErrorStyle.Render("✗ falló")
 	case execution.StatusCancelled:
-		return styles.WarningStyle.Render("⊘ cancelado")
+		return s.WarningStyle.Render("⊘ cancelado")
 	default:
-		return styles.Subtitle.Render(string(e.Status))
+		return s.Subtitle.Render(string(e.Status))
 	}
 }
 

@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textarea"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/rs/zerolog"
 
 	coretask "github.com/NeRo0128/brain-cli/internal/core/task"
@@ -87,6 +87,7 @@ type FormScreen struct {
 	log      zerolog.Logger
 
 	width, height int
+	styles        *styles.Styles
 }
 
 // constructor recibe la lista de intérpretes
@@ -96,12 +97,14 @@ func NewFormScreen(
 	toolRepo tool.Repository,
 	interpreters []tool.Interpreter,
 	log zerolog.Logger,
+	s *styles.Styles,
 ) FormScreen {
 	action := "crear"
 	if tk != nil {
 		action = "editar"
 	}
 	screenLog := log.With().Str("screen", "form").Str("action", action).Logger()
+	p := s.Theme.Resolve(s.Dark)
 
 	f := FormScreen{
 		editing:      tk,
@@ -113,6 +116,7 @@ func NewFormScreen(
 		priority:     coretask.PriorityMedium,
 		isActive:     true,
 		isFav:        false,
+		styles:       s,
 	}
 
 	f.idInput = newInput("mi-task", 40)
@@ -127,16 +131,22 @@ func NewFormScreen(
 	ta.SetHeight(5)
 	ta.ShowLineNumbers = false
 	ta.CharLimit = 8192
-	ta.FocusedStyle.Base = lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(styles.InputFocused).
-		Padding(0, 1)
-	ta.FocusedStyle.CursorLine = lipgloss.NewStyle()
-	ta.BlurredStyle.Base = lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(styles.InputBlurred).
-		Padding(0, 1)
-	ta.BlurredStyle.CursorLine = lipgloss.NewStyle()
+	ta.SetStyles(textarea.Styles{
+		Focused: textarea.StyleState{
+			Base: lipgloss.NewStyle().
+				Border(lipgloss.NormalBorder()).
+				BorderForeground(p.InputFocused).
+				Padding(0, 1),
+			CursorLine: lipgloss.NewStyle(),
+		},
+		Blurred: textarea.StyleState{
+			Base: lipgloss.NewStyle().
+				Border(lipgloss.NormalBorder()).
+				BorderForeground(p.InputBlurred).
+				Padding(0, 1),
+			CursorLine: lipgloss.NewStyle(),
+		},
+	})
 	f.promptInput = ta
 
 	if tk != nil {
@@ -163,12 +173,12 @@ func newInput(placeholder string, width int) textinput.Model {
 	ti := textinput.New()
 	ti.Placeholder = placeholder
 	ti.CharLimit = 512
-	ti.Width = width
+	ti.SetWidth(width)
 	return ti
 }
 
 func (m FormScreen) Init() tea.Cmd {
-	cmds := []tea.Cmd{tea.WindowSize(), textinput.Blink}
+	cmds := []tea.Cmd{func() tea.Msg { return tea.RequestWindowSize() }, textinput.Blink}
 
 	if m.editing != nil && m.editing.ToolID != nil {
 		repo := m.toolRepo
@@ -231,7 +241,7 @@ func (m FormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 		}
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return m.handleKey(msg)
 	}
 
@@ -251,7 +261,7 @@ func (m *FormScreen) syncInterpreterToTool() {
 	}
 }
 
-func (m FormScreen) handleKey(msg tea.KeyMsg) (ScreenI, tea.Cmd) {
+func (m FormScreen) handleKey(msg tea.KeyPressMsg) (ScreenI, tea.Cmd) {
 	fields := m.visibleFields()
 	if len(fields) == 0 {
 		return m, nil
@@ -273,7 +283,7 @@ func (m FormScreen) handleKey(msg tea.KeyMsg) (ScreenI, tea.Cmd) {
 			if m.selectedTool != nil {
 				current = &m.selectedTool.ID
 			}
-			return m, OpenToolPicker(current, m.currentScriptType())
+			return m, OpenToolPicker(current, m.currentScriptType(), m.styles)
 		}
 	case "left":
 		switch m.currentKind() {
@@ -287,7 +297,7 @@ func (m FormScreen) handleKey(msg tea.KeyMsg) (ScreenI, tea.Cmd) {
 			m.cycleSelect(+1)
 			return m, nil
 		}
-	case " ":
+	case "space":
 		if m.currentKind() == kindToggle {
 			m.toggleCurrent()
 			return m, nil
@@ -319,13 +329,13 @@ func (m FormScreen) delegateToInput(msg tea.Msg) (ScreenI, tea.Cmd) {
 
 // View renderiza SOLO el contenido del medio.
 // [ACTUALIZADO] sin title ni footer propios.
-func (m FormScreen) View() string {
+func (m FormScreen) View() tea.View {
 	var b strings.Builder
 
 	// En modo edición, mostramos el ID como referencia (no editable).
 	if m.editing != nil {
 		b.WriteString("  ")
-		b.WriteString(styles.Subtitle.Render("ID: "))
+		b.WriteString(m.styles.Subtitle.Render("ID: "))
 		b.WriteString(m.editing.ID)
 		b.WriteString("\n\n")
 	}
@@ -336,7 +346,7 @@ func (m FormScreen) View() string {
 	for i, id := range fields {
 		sec := sectionFor(id)
 		if sec != "" && sec != currentSection {
-			b.WriteString(renderSectionDivider(sec))
+			b.WriteString(renderSectionDivider(sec, m.styles))
 			currentSection = sec
 		}
 		b.WriteString(m.renderField(id, i == m.focus))
@@ -344,15 +354,15 @@ func (m FormScreen) View() string {
 
 	if m.saving {
 		b.WriteString("\n  ")
-		b.WriteString(styles.Subtitle.Render("Guardando..."))
+		b.WriteString(m.styles.Subtitle.Render("Guardando..."))
 	}
 	if m.err != nil {
 		b.WriteString("\n  ")
-		b.WriteString(styles.ErrorStyle.Render("✗ "))
+		b.WriteString(m.styles.ErrorStyle.Render("✗ "))
 		b.WriteString(m.err.Error())
 	}
 
-	return b.String()
+	return tea.NewView(b.String())
 }
 
 func (m FormScreen) renderField(id fieldID, focused bool) string {
@@ -362,9 +372,9 @@ func (m FormScreen) renderField(id fieldID, focused bool) string {
 	}
 
 	label := m.labelFor(id)
-	labelStyle := styles.Subtitle
+	labelStyle := m.styles.Subtitle
 	if focused {
-		labelStyle = styles.Key
+		labelStyle = m.styles.Key
 	}
 
 	// El textarea del prompt se renderiza en bloque multi-línea.
@@ -386,15 +396,15 @@ func (m FormScreen) renderField(id fieldID, focused bool) string {
 	case fPrompt:
 		value = m.promptInput.View()
 	case fKind:
-		value = renderSelect(string(m.kind), focused)
+		value = renderSelect(string(m.kind), focused, m.styles)
 	case fInterpreter:
 		value = m.renderInterpreterField(focused)
 	case fPriority:
-		value = renderSelect(string(m.priority), focused)
+		value = renderSelect(string(m.priority), focused, m.styles)
 	case fActive:
-		value = renderToggle(m.isActive, focused)
+		value = renderToggle(m.isActive, focused, m.styles)
 	case fFavorite:
-		value = renderToggle(m.isFav, focused)
+		value = renderToggle(m.isFav, focused, m.styles)
 	case fTool:
 		value = m.renderToolField(focused)
 	}
@@ -405,27 +415,27 @@ func (m FormScreen) renderField(id fieldID, focused bool) string {
 // renderInterpreterField: muestra el intérprete o warning si no hay.
 func (m FormScreen) renderInterpreterField(focused bool) string {
 	if len(m.interpreters) == 0 {
-		return styles.ErrorStyle.Render("⚠ No hay intérpretes instalados")
+		return m.styles.ErrorStyle.Render("⚠ No hay intérpretes instalados")
 	}
 	if focused {
-		return styles.Key.Render("◀ ") + m.interpreters[m.interpreterIdx].Display +
-			styles.Key.Render(" ▶")
+		return m.styles.Key.Render("◀ ") + m.interpreters[m.interpreterIdx].Display +
+			m.styles.Key.Render(" ▶")
 	}
-	return styles.Subtitle.Render("  " + m.interpreters[m.interpreterIdx].Display + "  ")
+	return m.styles.Subtitle.Render("  " + m.interpreters[m.interpreterIdx].Display + "  ")
 }
 
 func (m FormScreen) renderToolField(focused bool) string {
 	if m.selectedTool == nil {
 		if focused {
-			return styles.Key.Render("[ Elegir tool... ]")
+			return m.styles.Key.Render("[ Elegir tool... ]")
 		}
-		return styles.Subtitle.Render("[ Elegir tool... ]")
+		return m.styles.Subtitle.Render("[ Elegir tool... ]")
 	}
 	txt := "[" + m.selectedTool.Name + "]"
 	if focused {
-		return styles.Key.Render(txt)
+		return m.styles.Key.Render(txt)
 	}
-	return styles.Subtitle.Render(txt)
+	return m.styles.Subtitle.Render(txt)
 }
 
 func (m FormScreen) labelFor(id fieldID) string {
@@ -456,22 +466,22 @@ func (m FormScreen) labelFor(id fieldID) string {
 	return string(id)
 }
 
-func renderSelect(value string, focused bool) string {
+func renderSelect(value string, focused bool, s *styles.Styles) string {
 	if focused {
-		return styles.Key.Render("◀ ") + value + styles.Key.Render(" ▶")
+		return s.Key.Render("◀ ") + value + s.Key.Render(" ▶")
 	}
-	return styles.Subtitle.Render("  " + value + "  ")
+	return s.Subtitle.Render("  " + value + "  ")
 }
 
-func renderToggle(on bool, focused bool) string {
+func renderToggle(on bool, focused bool, s *styles.Styles) string {
 	mark := "[ ]"
 	if on {
 		mark = "[x]"
 	}
 	if focused {
-		return styles.Key.Render(mark)
+		return s.Key.Render(mark)
 	}
-	return styles.Subtitle.Render(mark)
+	return s.Subtitle.Render(mark)
 }
 
 // visibleFields según kind
@@ -710,8 +720,8 @@ func sectionFor(id fieldID) string {
 }
 
 // renderSectionDivider dibuja una línea tipo "─── IDENTIDAD ───".
-func renderSectionDivider(name string) string {
+func renderSectionDivider(name string, s *styles.Styles) string {
 	line := strings.Repeat("─", 3)
 	header := strings.ToUpper(name)
-	return "\n" + styles.Subtitle.Render(line+" "+header+" "+line) + "\n\n"
+	return "\n" + s.Subtitle.Render(line+" "+header+" "+line) + "\n\n"
 }

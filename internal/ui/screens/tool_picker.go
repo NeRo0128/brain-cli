@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/NeRo0128/brain-cli/internal/core/tool"
 	uilist "github.com/NeRo0128/brain-cli/internal/ui/components/list"
@@ -19,8 +19,6 @@ type toolsLoadedMsg struct {
 	tools []*tool.Tool
 	err   error
 }
-
-// --- Item ---
 
 type toolItem struct {
 	tool    *tool.Tool
@@ -53,8 +51,6 @@ func (i toolItem) Row() uilist.Row {
 	}
 }
 
-// --- Pantalla ---
-
 type ToolPickerScreen struct {
 	list    list.Model
 	loading bool
@@ -64,10 +60,11 @@ type ToolPickerScreen struct {
 	currentID       *int
 	filterType      tool.ScriptType
 	pendingSelectID *int
+	styles          *styles.Styles
 }
 
-func NewToolPickerScreen(repo tool.Repository, currentID *int, filterType tool.ScriptType) ToolPickerScreen {
-	l := list.New(nil, uilist.New(), 80, 20)
+func NewToolPickerScreen(repo tool.Repository, currentID *int, filterType tool.ScriptType, s *styles.Styles) ToolPickerScreen {
+	l := list.New(nil, uilist.New(s), 80, 20)
 	title := "Elegir herramienta"
 	if filterType != "" {
 		title = "Elegir " + string(filterType)
@@ -76,14 +73,15 @@ func NewToolPickerScreen(repo tool.Repository, currentID *int, filterType tool.S
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(false)
 	l.SetFilteringEnabled(true)
-	l.Styles.Title = styles.Title
-	l.Styles.HelpStyle = styles.Help
+	l.Styles.Title = s.Title
+	l.Styles.HelpStyle = s.Help
 
 	return ToolPickerScreen{
 		list:       l,
 		repo:       repo,
 		filterType: filterType,
 		currentID:  currentID,
+		styles:     s,
 		loading:    true,
 	}
 }
@@ -109,7 +107,7 @@ func (m ToolPickerScreen) Init() tea.Cmd {
 		}
 		return toolsLoadedMsg{tools: tools, err: nil}
 	}
-	return tea.Batch(tea.WindowSize(), load)
+	return tea.Batch(func() tea.Msg { return tea.RequestWindowSize() }, load)
 }
 
 func (m ToolPickerScreen) Keys() []string {
@@ -168,13 +166,13 @@ func (m ToolPickerScreen) handleAction(msg ActionMsg) (ScreenI, tea.Cmd) {
 	case keys.ViewHelp:
 		return m, OpenHelp()
 	case keys.EditNew:
-		return m, OpenToolForm(nil)
+		return m, OpenToolForm(nil, m.styles)
 	case keys.EditUpdate:
 		it, ok := m.list.SelectedItem().(toolItem)
 		if !ok {
 			return m, nil
 		}
-		return m, OpenToolForm(it.tool)
+		return m, OpenToolForm(it.tool, m.styles)
 	case keys.EditDelete:
 		it, ok := m.list.SelectedItem().(toolItem)
 		if !ok {
@@ -185,15 +183,14 @@ func (m ToolPickerScreen) handleAction(msg ActionMsg) (ScreenI, tea.Cmd) {
 			fmt.Sprintf("¿Borrar el tool '%s'?\n\nEsta acción no se puede deshacer.",
 				it.tool.Name),
 			DeleteToolMsg{ToolID: it.tool.ID, ToolName: it.tool.Name},
+			m.styles,
 		)
 	case keys.NavFilter:
-		// dejar que la lista maneje "/"
 	}
 	return m, nil
 }
 
 func (m *ToolPickerScreen) setItems(tools []*tool.Tool) {
-	// Priorizar pendingSelectID sobre currentID.
 	selectID := m.currentID
 	if m.pendingSelectID != nil {
 		selectID = m.pendingSelectID
@@ -216,14 +213,14 @@ func (m *ToolPickerScreen) setItems(tools []*tool.Tool) {
 	}
 }
 
-func (m ToolPickerScreen) View() string {
+func (m ToolPickerScreen) View() tea.View {
 	switch {
 	case m.loading:
-		return states.Loading("tools")
+		return tea.NewView(states.Loading(m.styles, "tools"))
 	case m.err != nil:
-		return states.Error(m.err)
+		return tea.NewView(states.Error(m.styles, m.err))
 	case len(m.list.Items()) == 0:
-		return states.Empty("No hay tools disponibles", "Pulsa n para crear uno")
+		return tea.NewView(states.Empty(m.styles, "No hay tools disponibles", "Pulsa n para crear uno"))
 	}
-	return m.list.View()
+	return tea.NewView(m.list.View())
 }

@@ -14,11 +14,13 @@ import (
 	"github.com/NeRo0128/brain-cli/internal/ui"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/screens"
+	"github.com/NeRo0128/brain-cli/internal/ui/styles"
+	"github.com/NeRo0128/brain-cli/internal/ui/theme"
 	taskEsxec "github.com/NeRo0128/brain-cli/internal/usecases/task"
 	tooluc "github.com/NeRo0128/brain-cli/internal/usecases/tool"
 	"github.com/NeRo0128/brain-cli/pkg/utils"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // Version will be set during build via ldflags
@@ -96,6 +98,13 @@ func main() {
 	log.Info().
 		Msg("Brain CLI iniciando")
 
+	// Resolve initial theme from config
+	initialTheme := theme.Default()
+	if cfg.UI.Theme != "" && theme.Exists(cfg.UI.Theme) {
+		initialTheme = theme.Get(cfg.UI.Theme)
+	}
+	appStyles := styles.New(initialTheme, true)
+
 	deps := ui.Deps{
 		Version:     Version,
 		Cfg:         cfg,
@@ -108,14 +117,14 @@ func main() {
 		Manager:     managerUC,
 		ToolManager: toolManagerUC,
 		Interpreter: interpreters,
+		Styles:      &appStyles,
 	}
 
 	p := tea.NewProgram(
 		ui.NewModels(
 			deps,
-			screens.NewMainScreen(taskRepo),
+			screens.NewMainScreen(taskRepo, &appStyles),
 		),
-		tea.WithAltScreen(),
 	)
 
 	if _, err := p.Run(); err != nil {

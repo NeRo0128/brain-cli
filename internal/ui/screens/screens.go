@@ -1,6 +1,6 @@
 package screens
 
-import tea "github.com/charmbracelet/bubbletea"
+import tea "charm.land/bubbletea/v2"
 
 // ScreenI es una pantalla navegable de la TUI.
 //
@@ -16,6 +16,6 @@ import tea "github.com/charmbracelet/bubbletea"
 type ScreenI interface {
 	Init() tea.Cmd
 	Update(tea.Msg) (ScreenI, tea.Cmd)
-	View() string
+	View() tea.View
 	Keys() []string
 }

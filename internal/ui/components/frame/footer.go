@@ -3,7 +3,7 @@ package frame
 import (
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
@@ -15,30 +15,26 @@ type Binding struct {
 	Help string   // ej: "navegar", "ejecutar", "salir"
 }
 
-var (
-	footerKeyStyle  = lipgloss.NewStyle().Bold(true).Foreground(styles.Secondary)
-	footerHelpStyle = lipgloss.NewStyle().Foreground(styles.Muted)
-	footerSepStyle  = lipgloss.NewStyle().Foreground(styles.Border)
-)
-
 // Footer devuelve UNA línea con los atajos activos.
 //
 //	↑↓ navegar · Enter ejecutar · d detalle · ? ayuda · q salir
 //
 // Si no caben todos, corta por el final y añade "…".
 // Si width <= 0, muestra todo (útil para tests).
-func Footer(bindings []Binding, width int) string {
+func Footer(bindings []Binding, s *styles.Styles, width int) string {
 	if len(bindings) == 0 {
 		return ""
 	}
 
-	sep := footerSepStyle.Render(" · ")
+	p := s.Theme.Resolve(s.Dark)
+
+	sep := lipgloss.NewStyle().Foreground(p.Border).Render(" · ")
 	rendered := make([]string, 0, len(bindings))
 
 	accumulated := 0
 	for i, b := range bindings {
 		keysStr := strings.Join(b.Keys, "/")
-		piece := footerKeyStyle.Render(keysStr) + " " + footerHelpStyle.Render(b.Help)
+		piece := lipgloss.NewStyle().Bold(true).Foreground(p.Secondary).Render(keysStr) + " " + s.Help.Render(b.Help)
 		pieceW := lipgloss.Width(piece)
 
 		// Reservar espacio para el separador (salvo el primero).
@@ -49,7 +45,7 @@ func Footer(bindings []Binding, width int) string {
 
 		if width > 0 && accumulated+sepW+pieceW+2 > width {
 			// No cabe: añadir "…" y cortar.
-			rendered = append(rendered, footerHelpStyle.Render("…"))
+			rendered = append(rendered, s.Help.Render("…"))
 			break
 		}
 

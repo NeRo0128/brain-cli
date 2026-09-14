@@ -3,8 +3,8 @@ package screens
 import (
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
@@ -12,19 +12,18 @@ import (
 
 const helpTwoColMinWidth = 100
 
-// HelpScreen muestra los atajos agrupados.
-// [S4c] responsive: 2 columnas si width >= 100, 1 columna si no.
 type HelpScreen struct {
 	km     keys.KeyMap
 	width  int
 	height int
+	styles *styles.Styles
 }
 
-func NewHelpScreen(km keys.KeyMap) HelpScreen {
-	return HelpScreen{km: km}
+func NewHelpScreen(km keys.KeyMap, s *styles.Styles) HelpScreen {
+	return HelpScreen{km: km, styles: s}
 }
 
-func (m HelpScreen) Init() tea.Cmd  { return tea.WindowSize() }
+func (m HelpScreen) Init() tea.Cmd  { return func() tea.Msg { return tea.RequestWindowSize() } }
 func (m HelpScreen) Keys() []string { return []string{keys.NavBack} }
 
 func (m HelpScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
@@ -41,42 +40,39 @@ func (m HelpScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	return m, nil
 }
 
-func (m HelpScreen) View() string {
+func (m HelpScreen) View() tea.View {
 	groups := m.km.Grouped()
 	if len(groups) == 0 {
-		return styles.Subtitle.Render("(sin atajos registrados)")
+		return tea.NewView(m.styles.Subtitle.Render("(sin atajos registrados)"))
 	}
 
-	// 1 columna: terminal angosta o pocos grupos.
 	if m.width < helpTwoColMinWidth || len(groups) < 2 {
-		return m.renderGroups(groups)
+		return tea.NewView(m.renderGroups(groups))
 	}
 
-	// 2 columnas: partir grupos por la mitad.
 	mid := (len(groups) + 1) / 2
 	left := m.renderGroups(groups[:mid])
 	right := m.renderGroups(groups[mid:])
 
-	colW := (m.width - 4) / 2 // 2 cols de gap + 1 de margen c/lado
+	colW := (m.width - 4) / 2
 	leftCol := lipgloss.NewStyle().Width(colW).Render(left)
 	rightCol := lipgloss.NewStyle().Width(colW).Render(right)
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, leftCol, "   ", rightCol)
+	return tea.NewView(lipgloss.JoinHorizontal(lipgloss.Top, leftCol, "   ", rightCol))
 }
 
-// renderGroups aplana los grupos a un bloque de texto.
 func (m HelpScreen) renderGroups(groups []keys.GroupBindings) string {
 	var b strings.Builder
 	for i, gb := range groups {
 		if i > 0 {
-			b.WriteString("\n") // separación entre grupos
+			b.WriteString("\n")
 		}
-		b.WriteString(styles.SectionHeader.Render(strings.ToUpper(gb.Group.Title())))
+		b.WriteString(m.styles.SectionHeader.Render(strings.ToUpper(gb.Group.Title())))
 		b.WriteString("\n")
 		for _, bd := range gb.Bindings {
 			keysStr := strings.Join(bd.Keys, "/")
 			b.WriteString("  ")
-			b.WriteString(styles.Key.Render(padRight(keysStr, 16)))
+			b.WriteString(m.styles.Key.Render(padRight(keysStr, 16)))
 			b.WriteString(" ")
 			b.WriteString(bd.Help)
 			b.WriteString("\n")

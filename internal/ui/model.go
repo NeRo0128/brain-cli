@@ -6,8 +6,9 @@ import (
 
 	toastComp "github.com/NeRo0128/brain-cli/internal/ui/components/toast"
 	"github.com/NeRo0128/brain-cli/internal/ui/screens"
+	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // devMinExecutingDisplay es un delay solo-dev para que el spinner sea visible.
@@ -22,14 +23,16 @@ type Model struct {
 	executing     bool
 	cancelExec    context.CancelFunc
 	execErr       error
-	toast         toastComp.Model // [ACTUALIZADO]
+	toast         toastComp.Model
+	styles        *styles.Styles
 }
 
 func NewModels(deps Deps, initial screens.ScreenI) Model {
 	return Model{
-		deps:  deps,
-		stack: []screens.ScreenI{initial},
-		toast: toastComp.NewModel(), // [ACTUALIZADO]
+		deps:   deps,
+		stack:  []screens.ScreenI{initial},
+		toast:  toastComp.NewModel(),
+		styles: deps.Styles,
 	}
 }
 

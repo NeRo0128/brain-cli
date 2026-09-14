@@ -11,21 +11,15 @@ import (
 	"github.com/NeRo0128/brain-cli/internal/ui/components/states"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
 )
 
-// --- Mensajes propios de la pantalla ---
-
-// tasksLoadedMsg transporta las tasks que llegan de la DB.
 type tasksLoadedMsg struct {
 	tasks []*task.Task
 	err   error
 }
 
-// --- Item de la lista ---
-
-// taskItem adapta *task.Task a list.Item (Title + Description).
 type taskItem struct {
 	task *task.Task
 }
@@ -50,28 +44,28 @@ func (i taskItem) Row() uilist.Row {
 	}
 }
 
-// --- Pantalla ---
-
 type MainScreen struct {
 	width, height int
 	loading       bool
 	err           error
 	list          list.Model
 	repo          coretask.Repository
+	styles        *styles.Styles
 }
 
-func NewMainScreen(repo coretask.Repository) MainScreen {
-	l := list.New(nil, uilist.New(), 80, 20)
+func NewMainScreen(repo coretask.Repository, s *styles.Styles) MainScreen {
+	l := list.New(nil, uilist.New(s), 80, 20)
 	l.Title = "Tareas"
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(false)
 	l.SetFilteringEnabled(true)
-	l.Styles.Title = styles.Title
-	l.Styles.HelpStyle = styles.Help
+	l.Styles.Title = s.Title
+	l.Styles.HelpStyle = s.Help
 
 	return MainScreen{
 		list:    l,
 		repo:    repo,
+		styles:  s,
 		loading: true,
 	}
 }
@@ -120,13 +114,13 @@ func (m MainScreen) handleAction(msg ActionMsg) (ScreenI, tea.Cmd) {
 			return m, ExecuteTask(tk.ID, tk.Name)
 		}
 	case keys.EditNew:
-		return m, OpenForm(nil)
+		return m, OpenForm(nil, m.styles)
 	case keys.ViewDetail:
 		if tk := m.SelectedTask(); tk != nil {
-			return m, OpenDetail(tk)
+			return m, OpenDetail(tk, m.styles)
 		}
 	case keys.ViewHistory:
-		return m, OpenHistory()
+		return m, OpenHistory(m.styles)
 	case keys.ViewHelp:
 		return m, OpenHelp()
 	case keys.EditDelete:
@@ -141,6 +135,7 @@ func (m MainScreen) handleAction(msg ActionMsg) (ScreenI, tea.Cmd) {
 				tk.Name,
 			),
 			DeleteTaskMsg{TaskID: tk.ID, TaskName: tk.Name},
+			m.styles,
 		)
 	}
 	return m, nil
@@ -162,16 +157,16 @@ func (m MainScreen) SelectedTask() *coretask.Task {
 	return it.task
 }
 
-func (m MainScreen) View() string {
+func (m MainScreen) View() tea.View {
 	switch {
 	case m.loading:
-		return states.Loading("tareas")
+		return tea.NewView(states.Loading(m.styles, "tareas"))
 	case m.err != nil:
-		return states.Error(m.err)
+		return tea.NewView(states.Error(m.styles, m.err))
 	case len(m.list.Items()) == 0:
-		return states.Empty("Sin tareas", "Pulsa n para crear la primera")
+		return tea.NewView(states.Empty(m.styles, "Sin tareas", "Pulsa n para crear la primera"))
 	}
-	return m.list.View()
+	return tea.NewView(m.list.View())
 }
 
 func (m MainScreen) Keys() []string {
