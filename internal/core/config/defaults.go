@@ -18,7 +18,9 @@ func Default() *Config {
 			MaxSizeMB: 100,
 		},
 		UI: UIConfig{
-			Theme: "dark",
+			Theme:      "brain",
+			Icons:      "nerd-b",
+			BrandStyle: "minimal",
 		},
 		Scripts: ScriptsConfig{
 			CustomDir: "scripts",

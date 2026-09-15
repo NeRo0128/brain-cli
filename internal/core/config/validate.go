@@ -14,7 +14,8 @@ var validLogFormats = map[string]bool{
 }
 
 var validThemes = map[string]bool{
-	"dark": true, "light": true,
+	"brain": true, "catppuccin": true, "tokyo-night": true,
+	"nord": true, "rose-pine": true, "kanagawa": true,
 }
 
 // Validate comprueba que la configuración es coherente.
@@ -38,7 +39,7 @@ func (c *Config) Validate() error {
 	if c.Logging.MaxSizeMB < 0 {
 		errs = append(errs, errors.New("logging.max_size_mb no puede ser negativo"))
 	}
-	if !validThemes[c.UI.Theme] {
+	if c.UI.Theme != "" && !validThemes[c.UI.Theme] {
 		errs = append(errs, fmt.Errorf("ui.theme inválido: %q", c.UI.Theme))
 	}
 

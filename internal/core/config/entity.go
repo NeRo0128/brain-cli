@@ -31,8 +31,9 @@ type LoggingConfig struct {
 
 // UIConfig controla la interfaz de terminal.
 type UIConfig struct {
-	Theme     string `yaml:"theme"`      // Theme: brain | catppuccin | tokyo-night | nord | rose-pine | kanagawa
+	Theme      string `yaml:"theme"`       // Theme: brain | catppuccin | tokyo-night | nord | rose-pine | kanagawa
 	BrandStyle string `yaml:"brand_style"` // BrandStyle: ascii | minimal | none
+	Icons      string `yaml:"icons"`
 }
 
 // ScriptsConfig define dónde viven los scripts de usuario.
