@@ -47,6 +47,7 @@ require (
 	github.com/charmbracelet/x/windows v0.2.2 // indirect
 	github.com/clipperhouse/displaywidth v0.11.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
+	github.com/muesli/reflow v0.3.0
 	github.com/sahilm/fuzzy v0.1.3 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 )

@@ -36,7 +36,7 @@ func (i toolItem) Row() uilist.Row {
 	}
 	if i.current {
 		badges = append(badges, uilist.Badge{
-			Text:  "★ actual",
+			Text:  "actual",
 			Style: uilist.BadgeWarning,
 		})
 	}

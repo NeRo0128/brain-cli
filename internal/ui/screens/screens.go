@@ -18,4 +18,7 @@ type ScreenI interface {
 	Update(tea.Msg) (ScreenI, tea.Cmd)
 	View() tea.View
 	Keys() []string
+	// WantsTextInput() bool
 }
+
+const TwoColMinWidth = 120

@@ -39,5 +39,5 @@ var Defaults = []Binding{
 	// --- App ---
 	{ID: AppQuit, Keys: []string{"q", "ctrl+c"}, Help: "salir", Group: GroupApp},
 	{ID: AppInterrupt, Keys: []string{"ctrl+c"}, Help: "interrumpir", Group: GroupApp},
-	{ID: AppTheme, Keys: []string{"t"}, Help: "tema", Group: GroupApp},
+	{ID: AppTheme, Keys: []string{"ctrl+t"}, Help: "tema", Group: GroupApp},
 }

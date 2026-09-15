@@ -7,8 +7,9 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/viewport"
-	"charm.land/lipgloss/v2"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"github.com/muesli/reflow/wrap"
 	"github.com/rs/zerolog"
 
 	"github.com/NeRo0128/brain-cli/internal/core/task"
@@ -17,8 +18,6 @@ import (
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
-
-const detailTwoColMinWidth = 120
 
 type toolLoadedMsg struct {
 	tool *tool.Tool
@@ -35,19 +34,35 @@ type DetailScreen struct {
 	ready    bool
 
 	toolRepo tool.Repository
+	taskRepo task.Repository
 	log      zerolog.Logger
 	styles   *styles.Styles
 }
 
-func NewDetailScreen(tk *task.Task, toolRepo tool.Repository, log zerolog.Logger, s *styles.Styles) DetailScreen {
+func NewDetailScreen(
+	tk *task.Task,
+	taskRepo task.Repository,
+	toolRepo tool.Repository,
+	log zerolog.Logger,
+	s *styles.Styles,
+) DetailScreen {
 	screenLog := log.With().Str("screen", "detail").Str("task_id", tk.ID).Logger()
 	return DetailScreen{
 		task:     tk,
+		taskRepo: taskRepo,
 		toolRepo: toolRepo,
 		loading:  tk.ToolID != nil,
 		log:      screenLog,
 		styles:   s,
 	}
+}
+
+// taskReloadedMsg transporta la task + tool recargados tras un ReloadMsg.
+type taskReloadedMsg struct {
+	task    *task.Task
+	tool    *tool.Tool
+	toolErr error
+	err     error
 }
 
 func (m DetailScreen) Init() tea.Cmd {
@@ -97,6 +112,22 @@ func (m DetailScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 
 	case ActionMsg:
 		return m.handleAction(msg)
+	case ReloadMsg:
+		return m, m.reload()
+	case taskReloadedMsg:
+		if msg.err != nil {
+			// Task probablemente borrada: volver a main.
+			m.log.Warn().Err(msg.err).Msg("reload: task no encontrada, volviendo")
+			return m, Back()
+		}
+		m.task = msg.task
+		m.tool = msg.tool
+		m.toolErr = msg.toolErr
+		m.loading = false
+		if m.ready {
+			m.viewport.SetContent(m.renderContent())
+		}
+		return m, nil
 	}
 
 	var cmd tea.Cmd
@@ -128,37 +159,43 @@ func (m DetailScreen) View() tea.View {
 	if !m.ready {
 		return tea.NewView(states.Loading(m.styles, "detalle"))
 	}
-	header := m.styles.Subtitle.Render("Task · "+m.task.ID) + "\n\n"
+	p := m.styles.Theme.Resolve(m.styles.Dark)
+	nameStyle := lipgloss.NewStyle().Bold(true).Foreground(p.Secondary)
+	header := nameStyle.Render(m.task.Name) + " " + m.styles.Subtitle.Render("Task · "+m.task.ID) + "\n\n"
 	return tea.NewView(header + m.viewport.View())
 }
 
 func (m DetailScreen) renderContent() string {
-	if m.viewport.Width() >= detailTwoColMinWidth {
+	if m.viewport.Width() >= TwoColMinWidth {
 		return m.renderTwoColumn()
 	}
 	return m.renderStacked()
 }
 
 func (m DetailScreen) renderStacked() string {
+	// Ancho útil: viewport menos 4 cols de margen (2 izq + 2 der).
+	w := max(m.viewport.Width()-4, 30)
+
 	var b strings.Builder
 	b.WriteString(m.renderMeta())
 	b.WriteString("\n")
 	b.WriteString(m.renderToolSection())
 	if m.task.AIPrompt != "" {
 		b.WriteString("\n")
-		b.WriteString(m.renderPromptSection())
+		b.WriteString(m.renderPromptSection(w))
 	}
 	return b.String()
 }
-
 func (m DetailScreen) renderTwoColumn() string {
 	totalW := m.viewport.Width()
 	gap := 3
 	leftW := totalW/2 - gap
 	rightW := totalW - leftW - gap
 
+	rightContentW := max(rightW-4, 20)
+
 	left := lipgloss.NewStyle().Width(leftW).Render(m.renderLeftColumn())
-	right := lipgloss.NewStyle().Width(rightW).Render(m.renderRightColumn())
+	right := lipgloss.NewStyle().Width(rightW).Render(m.renderRightColumn(rightContentW))
 	gapStr := strings.Repeat(" ", gap)
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, gapStr, right)
@@ -180,12 +217,12 @@ func (m DetailScreen) renderLeftColumn() string {
 	return b.String()
 }
 
-func (m DetailScreen) renderRightColumn() string {
+func (m DetailScreen) renderRightColumn(contentW int) string {
 	if m.task.AIPrompt != "" {
-		return m.renderPromptSection()
+		return m.renderPromptSection(contentW)
 	}
 	if m.tool != nil && m.tool.ScriptContent != "" {
-		return m.renderScriptSection()
+		return m.renderScriptSection(contentW)
 	}
 	return m.styles.Subtitle.Render("(sin contenido adicional)")
 }
@@ -210,7 +247,7 @@ func (m DetailScreen) renderTagsSection() string {
 	b.WriteString(m.styles.SectionHeader.Render("TAGS"))
 	b.WriteString("\n")
 	for _, tg := range m.task.Tags {
-		b.WriteString("  • ")
+		b.WriteString("  " + m.styles.ColoredIcons.Bullet() + " ")
 		b.WriteString(tg)
 		b.WriteString("\n")
 	}
@@ -256,28 +293,33 @@ func (m DetailScreen) renderToolSection() string {
 	return b.String()
 }
 
-func (m DetailScreen) renderPromptSection() string {
+func (m DetailScreen) renderPromptSection(contentW int) string {
 	p := m.styles.Theme.Resolve(m.styles.Dark)
+
+	wrapped := wrap.String(m.task.AIPrompt, contentW)
+
 	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(p.Border).
-		Padding(0, 1)
+		Padding(0, 1).Width(contentW)
 
 	return m.styles.SectionHeader.Render("PROMPT IA") + "\n" +
-		box.Render(m.task.AIPrompt) + "\n"
+		box.Render(wrapped) + "\n"
 }
 
-func (m DetailScreen) renderScriptSection() string {
+func (m DetailScreen) renderScriptSection(contentW int) string {
 	p := m.styles.Theme.Resolve(m.styles.Dark)
+
+	wrapped := wrap.String(m.tool.ScriptContent, contentW)
+
 	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(p.Border).
-		Padding(0, 1)
+		Padding(0, 1).Width(contentW)
 
 	return m.styles.SectionHeader.Render("CONTENIDO DEL SCRIPT") + "\n" +
-		box.Render(m.tool.ScriptContent) + "\n"
+		box.Render(wrapped) + "\n"
 }
-
 func writeKV(b *strings.Builder, s *styles.Styles, key, value string) {
 	b.WriteString("  ")
 	b.WriteString(s.Key.Render(key + ":"))
@@ -291,4 +333,37 @@ func boolYesNo(v bool) string {
 		return "sí"
 	}
 	return "no"
+}
+
+// reload re-fetchea la task y su tool desde los repositorios.
+// Se llama tras un ReloadMsg (ej: después de editar la task en el form).
+func (m DetailScreen) reload() tea.Cmd {
+	taskRepo := m.taskRepo
+	toolRepo := m.toolRepo
+	id := m.task.ID
+	log := m.log
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		tk, err := taskRepo.GetByID(ctx, id)
+		if err != nil {
+			log.Warn().Err(err).Str("task_id", id).Msg("reload: task no encontrada")
+			return taskReloadedMsg{err: err}
+		}
+
+		var tl *tool.Tool
+		var toolErr error
+		if tk.ToolID != nil {
+			tl, toolErr = toolRepo.GetByID(ctx, *tk.ToolID)
+		}
+
+		log.Debug().
+			Str("task_id", id).
+			Bool("has_tool", tl != nil).
+			Msg("reload: task actualizada")
+
+		return taskReloadedMsg{task: tk, tool: tl, toolErr: toolErr}
+	}
 }

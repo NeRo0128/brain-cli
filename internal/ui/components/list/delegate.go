@@ -11,26 +11,27 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
+	"github.com/NeRo0128/brain-cli/internal/ui/theme"
+)
+
+// PrefixKind clasifica el prefix del row.
+type PrefixKind int
+
+const (
+	PrefixNone PrefixKind = iota
+	PrefixFavorite
+	PrefixSuccess
+	PrefixFailed
+	PrefixCancelled
+	PrefixRunning
+	PrefixPending
 )
 
 // Row es la representación visual de un item.
-//
-//	▶ ★ Monitor de Recursos              [script] [low]
-//	   [monitor-recursos] · ✓ hace 2h · 1.2s
 type Row struct {
-	// Prefix aparece antes del título: "★ " favorito, "✓ " estado.
-	Prefix string
-	// PrefixColor tiñe el prefix. nil = color del título.
-	PrefixColor color.Color
-
-	// Title es el texto principal (1 línea).
-	Title string
-
-	// Badges se alinean a la derecha de la línea 1.
-	Badges []Badge
-
-	// Subtitle + Meta forman la línea 2 (atenuados).
-	// Si Subtitle está vacío, solo se muestra Meta.
+	Prefix   PrefixKind
+	Title    string
+	Badges   []Badge
 	Subtitle string
 	Meta     string
 }
@@ -67,21 +68,19 @@ func (d Delegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
 	p := d.styles.Theme.Resolve(d.styles.Dark)
 
 	// --- Estilos ---
+	// --- Cursor + prefix ---
 	cursor := "  "
 	titleStyle := lipgloss.NewStyle().Foreground(p.Text)
 	if selected {
-		cursor = "▶ "
+		cursor = d.styles.Icons.Selected + " "
 		titleStyle = titleStyle.Bold(true).Foreground(p.Primary)
 	}
 
 	// --- Prefix ---
 	prefix := ""
-	if row.Prefix != "" {
-		c := p.Text
-		if row.PrefixColor != nil {
-			c = row.PrefixColor
-		}
-		prefix = lipgloss.NewStyle().Foreground(c).Render(row.Prefix) + " "
+	if row.Prefix != PrefixNone {
+		glyph, clr := d.resolvePrefix(row.Prefix, p)
+		prefix = lipgloss.NewStyle().Foreground(clr).Render(glyph) + " "
 	}
 
 	// --- Línea 1 ---
@@ -122,4 +121,22 @@ func (d Delegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
 		return
 	}
 	fmt.Fprintf(w, "%s\n%s", line1, line2)
+}
+func (d Delegate) resolvePrefix(k PrefixKind, p theme.Palette) (string, color.Color) {
+	ic := d.styles.Icons
+	switch k {
+	case PrefixFavorite:
+		return ic.Favorite, p.Warning
+	case PrefixSuccess:
+		return ic.Success, p.Success
+	case PrefixFailed:
+		return ic.Failed, p.Error
+	case PrefixCancelled:
+		return ic.Cancelled, p.Warning
+	case PrefixRunning:
+		return ic.Running, p.Primary
+	case PrefixPending:
+		return ic.Pending, p.Muted
+	}
+	return "", p.Text
 }

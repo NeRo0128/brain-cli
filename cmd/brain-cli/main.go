@@ -12,6 +12,7 @@ import (
 	"github.com/NeRo0128/brain-cli/internal/adapters/executor"
 	"github.com/NeRo0128/brain-cli/internal/core/tool"
 	"github.com/NeRo0128/brain-cli/internal/ui"
+	"github.com/NeRo0128/brain-cli/internal/ui/icons"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/screens"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
@@ -99,11 +100,27 @@ func main() {
 		Msg("Brain CLI iniciando")
 
 	// Resolve initial theme from config
+	// Resolve initial theme from config
+	// Resolve initial theme from config
 	initialTheme := theme.Default()
 	if cfg.UI.Theme != "" && theme.Exists(cfg.UI.Theme) {
 		initialTheme = theme.Get(cfg.UI.Theme)
 	}
-	appStyles := styles.New(initialTheme, true)
+
+	// [NUEVO] Resolve icon set from config
+	iconName := cfg.UI.Icons
+	if !icons.Exists(iconName) {
+		iconName = icons.DefaultName
+	}
+	iconSet := icons.Get(iconName)
+
+	log.Debug().
+		Str("theme", initialTheme.Name).
+		Str("icons", iconName).
+		Msg("apariencia cargada")
+
+	// [FIX] Tercer argumento: iconSet
+	appStyles := styles.New(initialTheme, true, iconSet)
 
 	deps := ui.Deps{
 		Version:     Version,

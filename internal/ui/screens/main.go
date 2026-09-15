@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
 	"github.com/NeRo0128/brain-cli/internal/core/task"
 	coretask "github.com/NeRo0128/brain-cli/internal/core/task"
 	uilist "github.com/NeRo0128/brain-cli/internal/ui/components/list"
 	"github.com/NeRo0128/brain-cli/internal/ui/components/states"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
-	"charm.land/bubbles/v2/list"
-	tea "charm.land/bubbletea/v2"
 )
 
 type tasksLoadedMsg struct {
@@ -29,9 +29,9 @@ func (i taskItem) Description() string { return "" }
 func (i taskItem) FilterValue() string { return i.task.Name + " " + i.task.ID }
 
 func (i taskItem) Row() uilist.Row {
-	prefix := ""
+	prefix := uilist.PrefixNone
 	if i.task.IsFavorite {
-		prefix = "★"
+		prefix = uilist.PrefixFavorite
 	}
 	return uilist.Row{
 		Prefix: prefix,

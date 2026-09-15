@@ -13,6 +13,7 @@ import (
 
 	coretask "github.com/NeRo0128/brain-cli/internal/core/task"
 	"github.com/NeRo0128/brain-cli/internal/core/tool"
+	"github.com/NeRo0128/brain-cli/internal/ui/components/toast"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 	taskuc "github.com/NeRo0128/brain-cli/internal/usecases/task"
@@ -67,7 +68,7 @@ type FormScreen struct {
 	nameInput    textinput.Model
 	descInput    textinput.Model
 	commandInput textinput.Model //
-	promptInput  textarea.Model   // [S4a] prompt IA con múltiples líneas
+	promptInput  textarea.Model  // [S4a] prompt IA con múltiples líneas
 
 	kind           coretask.TaskKind  //
 	interpreters   []tool.Interpreter // solo disponibles
@@ -88,6 +89,7 @@ type FormScreen struct {
 
 	width, height int
 	styles        *styles.Styles
+	scroll        int
 }
 
 // constructor recibe la lista de intérpretes
@@ -104,7 +106,6 @@ func NewFormScreen(
 		action = "editar"
 	}
 	screenLog := log.With().Str("screen", "form").Str("action", action).Logger()
-	p := s.Theme.Resolve(s.Dark)
 
 	f := FormScreen{
 		editing:      tk,
@@ -133,17 +134,11 @@ func NewFormScreen(
 	ta.CharLimit = 8192
 	ta.SetStyles(textarea.Styles{
 		Focused: textarea.StyleState{
-			Base: lipgloss.NewStyle().
-				Border(lipgloss.NormalBorder()).
-				BorderForeground(p.InputFocused).
-				Padding(0, 1),
+			Base:       lipgloss.NewStyle(),
 			CursorLine: lipgloss.NewStyle(),
 		},
 		Blurred: textarea.StyleState{
-			Base: lipgloss.NewStyle().
-				Border(lipgloss.NormalBorder()).
-				BorderForeground(p.InputBlurred).
-				Padding(0, 1),
+			Base:       lipgloss.NewStyle(),
 			CursorLine: lipgloss.NewStyle(),
 		},
 	})
@@ -205,6 +200,7 @@ func (m FormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+		m.resizeInputs(msg.Width)
 		return m, nil
 
 	case saveDoneMsg:
@@ -212,7 +208,7 @@ func (m FormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 		if msg.err != nil {
 			m.err = msg.err
 			m.log.Warn().Err(msg.err).Msg("guardar falló")
-			return m, nil
+			return m, toast.ShowError(cleanSaveError(msg.err))
 		}
 		m.log.Info().Bool("created", msg.created).Msg("task guardada")
 		return m, FormSaved()
@@ -248,6 +244,36 @@ func (m FormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	return m.delegateToInput(msg)
 }
 
+func (m *FormScreen) resizeInputs(termWidth int) {
+	if termWidth >= TwoColMinWidth {
+		totalW := termWidth - 2
+		gap := 4
+		colW := max((totalW-gap)/2, 50)
+
+		m.idInput.SetWidth(min(40, colW))
+		m.nameInput.SetWidth(colW)
+		m.descInput.SetWidth(colW)
+		m.commandInput.SetWidth(colW)
+
+		taW := max(colW-4, 20)
+		m.promptInput.SetWidth(taW)
+		return
+	}
+
+	// 1-col: comportamiento actual.
+	w := min(max(termWidth-12, 30), 100)
+	m.idInput.SetWidth(min(40, w))
+	m.nameInput.SetWidth(w)
+	m.descInput.SetWidth(w)
+	m.commandInput.SetWidth(w)
+
+	taW := w - 4
+	if taW < 20 {
+		taW = 20
+	}
+	m.promptInput.SetWidth(taW)
+}
+
 // syncInterpreterToTool alinea interpreterIdx con el tool actual.
 func (m *FormScreen) syncInterpreterToTool() {
 	if m.selectedTool == nil {
@@ -271,10 +297,12 @@ func (m FormScreen) handleKey(msg tea.KeyPressMsg) (ScreenI, tea.Cmd) {
 	case "tab":
 		m.focus = (m.focus + 1) % len(fields)
 		m.applyFocus()
+		m.scrollToFocus() // [NUEVO]
 		return m, nil
 	case "shift+tab":
 		m.focus = (m.focus - 1 + len(fields)) % len(fields)
 		m.applyFocus()
+		m.scrollToFocus() // [NUEVO]
 		return m, nil
 	case "enter":
 		// Enter en fTool abre el picker filtrado
@@ -327,11 +355,11 @@ func (m FormScreen) delegateToInput(msg tea.Msg) (ScreenI, tea.Cmd) {
 	return m, cmd
 }
 
-// View renderiza SOLO el contenido del medio.
-// [ACTUALIZADO] sin title ni footer propios.
+// View renderiza SOLO el contenido del medio
 func (m FormScreen) View() tea.View {
-	var b strings.Builder
 
+	var b strings.Builder
+	m.scrollToFocus() // ERROR no funcioina aun
 	// En modo edición, mostramos el ID como referencia (no editable).
 	if m.editing != nil {
 		b.WriteString("  ")
@@ -340,16 +368,11 @@ func (m FormScreen) View() tea.View {
 		b.WriteString("\n\n")
 	}
 
-	// [S4c] section dividers entre grupos de campos
-	currentSection := ""
-	fields := m.visibleFields()
-	for i, id := range fields {
-		sec := sectionFor(id)
-		if sec != "" && sec != currentSection {
-			b.WriteString(renderSectionDivider(sec, m.styles))
-			currentSection = sec
-		}
-		b.WriteString(m.renderField(id, i == m.focus))
+	if m.width >= TwoColMinWidth {
+		b.WriteString(m.renderTwoColumn())
+	} else {
+		m.scrollToFocus()
+		b.WriteString(m.renderStacked())
 	}
 
 	if m.saving {
@@ -378,9 +401,26 @@ func (m FormScreen) renderField(id fieldID, focused bool) string {
 	}
 
 	// El textarea del prompt se renderiza en bloque multi-línea.
+	// Textarea: borde externo controlado aquí, no por el textarea.
 	if id == fPrompt {
-		return cursor + labelStyle.Render(label) + "\n   " +
-			m.promptInput.View() + "\n\n"
+		p := m.styles.Theme.Resolve(m.styles.Dark)
+		borderColor := p.InputBlurred
+		if focused {
+			borderColor = p.InputFocused
+		}
+
+		// Ancho interior del box (sin borde ni padding).
+		// Lo derivamos del ancho del textarea ya ajustado en resizeInputs.
+		innerW := max(m.promptInput.Width(), 20)
+
+		box := lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder()).
+			BorderForeground(borderColor).
+			Padding(0, 1).
+			Width(innerW)
+
+		return cursor + labelStyle.Render(label) + "\n" +
+			box.Render(m.promptInput.View()) + "\n\n"
 	}
 
 	var value string
@@ -724,4 +764,173 @@ func renderSectionDivider(name string, s *styles.Styles) string {
 	line := strings.Repeat("─", 3)
 	header := strings.ToUpper(name)
 	return "\n" + s.Subtitle.Render(line+" "+header+" "+line) + "\n\n"
+}
+
+func cleanSaveError(err error) string {
+	msg := err.Error()
+
+	// Quitar prefijos comunes de wrapping.
+	for _, prefix := range []string{
+		"creando task: ",
+		"actualizando task: ",
+		"task inválida: ",
+	} {
+		msg = strings.TrimPrefix(msg, prefix)
+	}
+	return msg
+}
+
+// scrollToFocus ajusta m.scroll para que el campo enfocado quede
+// visible en la ventana del form.
+//
+// Estrategia: renderiza el form completo, calcula la línea Y del
+// campo enfocado, y ajusta el offset para que esté dentro del viewport.
+func (m *FormScreen) scrollToFocus() {
+	// En 2-col no hay scroll: el form cabe.
+	if m.width >= TwoColMinWidth {
+		return
+	}
+	if m.height <= 0 {
+		return
+	}
+	availableH := m.height - 8
+	if availableH < 5 {
+		availableH = 5
+	}
+
+	lines := strings.Split(m.renderAllFields(), "\n")
+
+	focusStart, focusEnd := m.focusRange(lines)
+	if focusStart < 0 {
+		return
+	}
+
+	if focusStart < m.scroll {
+		m.scroll = focusStart
+	} else if focusEnd > m.scroll+availableH {
+		m.scroll = focusEnd - availableH
+	}
+	if m.scroll < 0 {
+		m.scroll = 0
+	}
+}
+
+// focusRange devuelve [start, end) en líneas del campo enfocado.
+// Si no se encuentra, devuelve (-1, -1).
+func (m FormScreen) focusRange(lines []string) (int, int) {
+	label := m.labelFor(m.currentField())
+	if label == "" {
+		return -1, -1
+	}
+	// Busca la primera línea que contenga el label.
+	for i, l := range lines {
+		if strings.Contains(l, label) {
+			// El bloque del campo va desde esa línea hasta el próximo
+			// campo (heurística: línea vacía después).
+			end := i + 1
+			for end < len(lines) && strings.TrimSpace(lines[end]) != "" {
+				end++
+			}
+			// Añadir 1 por si el campo es multi-línea (textarea).
+			if end < len(lines) {
+				end++
+			}
+			return i, end
+		}
+	}
+	return -1, -1
+}
+
+// renderAllFields renderiza todos los campos visibles, agrupados
+// por sección. Se usa en modo 1-col (con recorte por scroll).
+func (m FormScreen) renderAllFields() string {
+	var b strings.Builder
+	currentSection := ""
+	for _, id := range m.visibleFields() {
+		sec := sectionFor(id)
+		if sec != "" && sec != currentSection {
+			b.WriteString(renderSectionDivider(sec, m.styles))
+			currentSection = sec
+		}
+		b.WriteString(m.renderField(id, m.currentField() == id))
+	}
+	return b.String()
+}
+
+// renderStacked: 1 columna con scroll (comportamiento actual).
+func (m FormScreen) renderStacked() string {
+	availableH := m.height - 8
+	if availableH < 5 {
+		availableH = 5
+	}
+	lines := strings.Split(m.renderAllFields(), "\n")
+	start := m.scroll
+	if start > len(lines) {
+		start = len(lines)
+	}
+	end := start + availableH
+	if end > len(lines) {
+		end = len(lines)
+	}
+
+	var b strings.Builder
+	b.WriteString(strings.Join(lines[start:end], "\n"))
+
+	if start > 0 {
+		b.WriteString("\n  ")
+		b.WriteString(m.styles.Subtitle.Render("↑ hay más arriba"))
+	}
+	if end < len(lines) {
+		b.WriteString("\n  ")
+		b.WriteString(m.styles.Subtitle.Render("↓ hay más abajo"))
+	}
+	return b.String()
+}
+
+// renderTwoColumn divide el form en 2 columnas:
+func (m FormScreen) renderTwoColumn() string {
+	totalW := m.width - 2
+	gap := 4
+	leftW := totalW/2 - gap/2
+	rightW := totalW - leftW - gap
+
+	left := lipgloss.NewStyle().Width(leftW).Render(m.renderLeftColumn())
+	right := lipgloss.NewStyle().Width(rightW).Render(m.renderRightColumn())
+	gapStr := strings.Repeat(" ", gap)
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, left, gapStr, right)
+}
+
+// renderLeftColumn: secciones Identidad + Metadatos.
+func (m FormScreen) renderLeftColumn() string {
+	var b strings.Builder
+	b.WriteString(m.renderSection("Identidad"))
+	b.WriteString(m.renderSection("Metadatos"))
+	return b.String()
+}
+
+// renderRightColumn: sección Acción (incluye prompt/script textarea).
+func (m FormScreen) renderRightColumn() string {
+	return m.renderSection("Acción")
+}
+
+// renderSection renderiza los campos visibles de una sección con su divider.
+// Devuelve "" si la sección no tiene campos visibles.
+func (m FormScreen) renderSection(section string) string {
+	var fields []fieldID
+	for _, id := range m.visibleFields() {
+		if sectionFor(id) == section {
+			fields = append(fields, id)
+		}
+	}
+	if len(fields) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString(renderSectionDivider(section, m.styles))
+	for _, id := range fields {
+		b.WriteString(m.renderField(id, m.currentField() == id))
+	}
+	return b.String()
 }

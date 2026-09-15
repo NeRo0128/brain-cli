@@ -88,24 +88,33 @@ func (m ExecutingScreen) View() tea.View {
 
 	var status string
 	if m.canceling {
-		status = m.styles.WarningStyle.Render("⊘ Cancelando")
+
+		status = m.styles.ColoredIcons.Cancelled() + " " + m.styles.WarningStyle.Render("Cancelando")
 	} else {
 		status = m.spinner.View() + " Ejecutando"
 	}
 
 	var b strings.Builder
-	b.WriteString("  " + status + "  ")
+	b.WriteString("  ")
+	b.WriteString(status)
+	b.WriteString("  ")
 	b.WriteString(m.styles.TimerStyle.Render(elapsed.String()))
 	b.WriteString("\n\n")
 
-	b.WriteString("  " + m.styles.Key.Render("Tarea:") + " " + m.taskName + "\n\n")
+	b.WriteString("  ")
+	b.WriteString(m.styles.Key.Render("Tarea:"))
+	b.WriteString(" ")
+	b.WriteString(m.taskName)
+	b.WriteString("\n\n")
 
-	b.WriteString("  " + m.bar.WithOffset(m.barOffset).View() + "\n")
+	b.WriteString("  ")
+	b.WriteString(m.bar.WithOffset(m.barOffset).View())
+	b.WriteString("\n")
 
 	if m.canceling {
-		b.WriteString("\n  " +
-			m.styles.Subtitle.Render("Esperando a que termine el proceso...") +
-			"\n")
+		b.WriteString("\n  ")
+		b.WriteString(m.styles.Subtitle.Render("Esperando a que termine el proceso..."))
+		b.WriteString("\n")
 	}
 
 	return tea.NewView(b.String())

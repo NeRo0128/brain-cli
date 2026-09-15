@@ -34,7 +34,7 @@ func Footer(bindings []Binding, s *styles.Styles, width int) string {
 	accumulated := 0
 	for i, b := range bindings {
 		keysStr := strings.Join(b.Keys, "/")
-		piece := lipgloss.NewStyle().Bold(true).Foreground(p.Secondary).Render(keysStr) + " " + s.Help.Render(b.Help)
+		piece := lipgloss.NewStyle().Bold(true).Foreground(p.Secondary).Render(keysStr) + " " + lipgloss.NewStyle().Foreground(p.Muted).Render(b.Help)
 		pieceW := lipgloss.Width(piece)
 
 		// Reservar espacio para el separador (salvo el primero).

@@ -75,13 +75,18 @@ func (m ConfirmScreen) View() tea.View {
 	p := m.styles.Theme.Resolve(m.styles.Dark)
 
 	var content strings.Builder
-	content.WriteString(m.styles.ErrorStyle.Render("⚠  " + m.title))
+
+	content.WriteString(m.styles.ColoredIcons.Danger())
+	content.WriteString(" ")
+	content.WriteString(m.styles.ErrorStyle.Render(m.title))
 	content.WriteString("\n\n")
 	content.WriteString(m.message)
 	content.WriteString("\n\n")
-	content.WriteString(m.styles.Key.Render("s") + m.styles.Subtitle.Render(" confirmar"))
+	content.WriteString(m.styles.Key.Render("s"))
+	content.WriteString(m.styles.Subtitle.Render(" confirmar"))
 	content.WriteString("   ")
-	content.WriteString(m.styles.Key.Render("n") + m.styles.Subtitle.Render(" cancelar"))
+	content.WriteString(m.styles.Key.Render("n"))
+	content.WriteString(m.styles.Subtitle.Render(" cancelar"))
 
 	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).

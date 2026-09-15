@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
+	"github.com/NeRo0128/brain-cli/internal/ui/icons"
 )
 
 const (
@@ -99,15 +100,20 @@ func (m Model) renderBox(t toast) string {
 
 // iconAndColor devuelve el icono y color según el nivel.
 func (m Model) iconAndColor(l Level) (string, color.Color) {
+	// Fallback si aún no se inicializó el set.
+	ic := m.icons
+	if ic.Success == "" {
+		ic = icons.Unicode
+	}
 	switch l {
 	case LevelSuccess:
-		return "✓", m.palette.Success
+		return ic.Success, m.palette.Success
 	case LevelWarning:
-		return "⚠", m.palette.Warning
+		return ic.Warning, m.palette.Warning
 	case LevelError:
-		return "✗", m.palette.Error
+		return ic.Failed, m.palette.Error
 	default:
-		return "•", m.palette.Primary
+		return ic.Info, m.palette.Primary
 	}
 }
 

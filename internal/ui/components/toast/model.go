@@ -12,6 +12,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/NeRo0128/brain-cli/internal/ui/icons"
 	"github.com/NeRo0128/brain-cli/internal/ui/theme"
 )
 
@@ -56,6 +57,7 @@ type Model struct {
 	toasts  []toast
 	nextID  int
 	palette theme.Palette
+	icons   icons.Set
 }
 
 type toast struct {
@@ -65,6 +67,8 @@ type toast struct {
 	duration time.Duration
 	expires  time.Time
 }
+
+func (m *Model) SetIcons(s icons.Set) { m.icons = s }
 
 // NewModel construye un modelo vacío.
 func NewModel() Model { return Model{} }

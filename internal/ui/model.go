@@ -28,14 +28,19 @@ type Model struct {
 }
 
 func NewModels(deps Deps, initial screens.ScreenI) Model {
+	tm := toastComp.NewModel()
+	if deps.Styles != nil {
+		tm.SetPalette(deps.Styles.Theme.Resolve(deps.Styles.Dark))
+		tm.SetIcons(deps.Styles.Icons)
+	}
+
 	return Model{
 		deps:   deps,
 		stack:  []screens.ScreenI{initial},
-		toast:  toastComp.NewModel(),
+		toast:  tm,
 		styles: deps.Styles,
 	}
 }
-
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		m.top().Init(),

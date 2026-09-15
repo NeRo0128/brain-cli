@@ -98,11 +98,11 @@ func (m ResultScreen) renderOutput() string {
 func renderStatus(e *execution.Execution, s *styles.Styles) string {
 	switch e.Status {
 	case execution.StatusCompleted:
-		return s.SuccessStyle.Render("✓ completado")
+		return s.ColoredIcons.Success() + " " + s.SuccessStyle.Render("completado")
 	case execution.StatusFailed:
-		return s.ErrorStyle.Render("✗ falló")
+		return s.ColoredIcons.Failed() + " " + s.ErrorStyle.Render("falló")
 	case execution.StatusCancelled:
-		return s.WarningStyle.Render("⊘ cancelado")
+		return s.ColoredIcons.Cancelled() + " " + s.WarningStyle.Render("cancelado")
 	default:
 		return s.Subtitle.Render(string(e.Status))
 	}

@@ -26,5 +26,5 @@ func Loading(s *styles.Styles, what string) string {
 
 // Error muestra un mensaje de error.
 func Error(s *styles.Styles, err error) string {
-	return "\n\n  " + s.ErrorStyle.Render("✗ ") + err.Error() + "\n"
+	return "\n\n  " + s.ColoredIcons.Failed() + " " + err.Error() + "\n"
 }

@@ -34,7 +34,10 @@ func (m Model) View() tea.View {
 	body := m.assembleBody(header, content, footer)
 
 	// --- Overlay del toast (esquina superior derecha) ---
-	v := tea.NewView(toast.Overlay(body, m.toast.View(), m.width))
+	headerLines := strings.Count(header, "\n") + 1
+	toastStart := headerLines + 1
+
+	v := tea.NewView(toast.Overlay(body, m.toast.View(), m.width, toastStart))
 	v.AltScreen = true
 	return v
 }
@@ -103,18 +106,9 @@ func (m Model) assembleBody(header, content, footer string) string {
 		return header + "\n\n" + content + "\n\n" + footer
 	}
 
-	// Reservamos 4 líneas de overhead:
-	//   1 header
-	//   1 blank después del header
-	//   1 blank antes del footer
-	//   1 footer
-	contentHeight := m.height - 4
-	if contentHeight < 1 {
-		contentHeight = 1
-	}
+	headerLines := strings.Count(header, "\n") + 1
+	contentHeight := max(m.height-headerLines-3, 1)
 
-	// Convertimos el contenido a líneas exactas: truncar si sobra,
-	// rellenar con vacías si falta.
 	lines := strings.Split(content, "\n")
 	if len(lines) > contentHeight {
 		lines = lines[:contentHeight]
@@ -122,7 +116,6 @@ func (m Model) assembleBody(header, content, footer string) string {
 	for len(lines) < contentHeight {
 		lines = append(lines, "")
 	}
-
 	var b strings.Builder
 	b.WriteString(header)
 	b.WriteString("\n\n")

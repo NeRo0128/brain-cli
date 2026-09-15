@@ -3,6 +3,7 @@ package styles
 import (
 	lipgloss "charm.land/lipgloss/v2"
 
+	"github.com/NeRo0128/brain-cli/internal/ui/icons"
 	"github.com/NeRo0128/brain-cli/internal/ui/theme"
 )
 
@@ -42,10 +43,13 @@ type Styles struct {
 	IconWarning lipgloss.Style
 	IconError   lipgloss.Style
 	IconInfo    lipgloss.Style
+
+	Icons        icons.Set
+	ColoredIcons icons.Colored
 }
 
 // New construye el set de estilos desde un tema y el modo del terminal.
-func New(t theme.Theme, isDark bool) Styles {
+func New(t theme.Theme, isDark bool, iconSet icons.Set) Styles {
 	p := t.Resolve(isDark)
 	return Styles{
 		Theme: t,
@@ -53,7 +57,7 @@ func New(t theme.Theme, isDark bool) Styles {
 
 		Title:         lipgloss.NewStyle().Bold(true).Foreground(p.Primary).Padding(0, 1),
 		Subtitle:      lipgloss.NewStyle().Foreground(p.Muted),
-		SectionHeader: lipgloss.NewStyle().Bold(true).Foreground(p.Secondary).MarginTop(1),
+		SectionHeader: lipgloss.NewStyle().Bold(true).Foreground(p.Tertiary).MarginTop(1),
 		Key:           lipgloss.NewStyle().Bold(true).Foreground(p.Secondary),
 		Help:          lipgloss.NewStyle().Foreground(p.Muted).Padding(1, 2),
 
@@ -86,5 +90,8 @@ func New(t theme.Theme, isDark bool) Styles {
 		IconWarning: lipgloss.NewStyle().Foreground(p.Warning),
 		IconError:   lipgloss.NewStyle().Foreground(p.Error),
 		IconInfo:    lipgloss.NewStyle().Foreground(p.Primary),
+
+		Icons:        iconSet,
+		ColoredIcons: icons.NewColored(iconSet, isDark, t),
 	}
 }

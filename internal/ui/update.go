@@ -4,12 +4,12 @@ import (
 	"context"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
 	toasts "github.com/NeRo0128/brain-cli/internal/ui/components/toast"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/screens"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 	"github.com/NeRo0128/brain-cli/internal/ui/theme"
-	tea "charm.land/bubbletea/v2"
 )
 
 // Update procesa todos los mensajes de la aplicación.
@@ -59,7 +59,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if s == nil {
 			s = m.deps.Styles
 		}
-		d := screens.NewDetailScreen(msg.Task, m.deps.ToolRepo, m.deps.Log, s)
+		d := screens.NewDetailScreen(
+			msg.Task,
+			m.deps.TaskRepo,
+			m.deps.ToolRepo,
+			m.deps.Log,
+			s,
+		)
 		return m, tea.Batch(toastCmd, push(d), d.Init())
 
 	case screens.OpenHistoryMsg:
@@ -212,15 +218,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, toastCmd
 			}
-
-		case "t":
+		case "ctrl+t":
 			if !m.executing {
 				nextName := theme.Next(m.styles.Theme.Name)
 				next := theme.Get(nextName)
-				s := styles.New(next, m.styles.Dark)
-				m.styles = &s
+
+				s := styles.New(next, m.styles.Dark, m.styles.Icons)
+				*m.deps.Styles = s
 				m.toast.SetPalette(next.Resolve(s.Dark))
-				return m, tea.Batch(toastCmd, toasts.ShowSuccess("Tema: "+nextName))
+				m.toast.SetIcons(s.Icons) // [NUEVO]
+
+				return m, tea.Batch(toastCmd,
+					toasts.ShowSuccess("Tema: "+nextName),
+					func() tea.Msg { return tea.RequestWindowSize() })
 			}
 			return m, toastCmd
 		}

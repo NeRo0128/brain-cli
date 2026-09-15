@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"time"
 
+	"github.com/NeRo0128/brain-cli/internal/ui/icons"
 	"github.com/NeRo0128/brain-cli/internal/ui/theme"
 )
 
@@ -70,4 +71,22 @@ func IconForStatus(status string) string {
 		return "◐"
 	}
 	return "•"
+}
+
+// StatusGlyph devuelve el glyph del icon set para un estado dado.
+// Complementa a ColorForStatus: pásale el mismo status y el set activo.
+func StatusGlyph(status string, set icons.Set) string {
+	switch status {
+	case "completed", "success", "ok":
+		return set.Success
+	case "failed", "error":
+		return set.Failed
+	case "cancelled", "canceled", "warn":
+		return set.Cancelled
+	case "running":
+		return set.Running
+	case "pending":
+		return set.Pending
+	}
+	return set.Bullet
 }

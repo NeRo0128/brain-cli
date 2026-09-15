@@ -170,6 +170,7 @@ func (m ToolFormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+		m.resizeInputs(msg.Width)
 		return m, nil
 
 	case toolSaveDoneMsg:
@@ -201,6 +202,29 @@ func (m ToolFormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	}
 
 	return m.delegateToInput(msg)
+}
+func (m *ToolFormScreen) resizeInputs(termWidth int) {
+	// Margen: 3 indent izq + 4 margen der + 4 box = 11, redondeamos a 12.
+	w := termWidth - 12
+	if w < 30 {
+		w = 30
+	}
+	if w > 100 {
+		w = 100
+	}
+
+	// Textinputs
+	m.nameInput.SetWidth(w)
+	m.descInput.SetWidth(w)
+	m.commandInput.SetWidth(w)
+	m.timeoutInput.SetWidth(min(10, w))
+
+	// Textarea: restar 4 cols por borde + padding
+	taW := w - 4
+	if taW < 20 {
+		taW = 20
+	}
+	m.scriptArea.SetWidth(taW)
 }
 
 func (m ToolFormScreen) handleKey(msg tea.KeyPressMsg) (ScreenI, tea.Cmd) {
@@ -262,8 +286,10 @@ func (m ToolFormScreen) View() tea.View {
 	var b strings.Builder
 
 	if m.editing != nil {
-		b.WriteString("  " + m.styles.Subtitle.Render("ID: ") +
-			strconv.Itoa(m.editing.ID) + "\n\n")
+		b.WriteString("  ")
+		b.WriteString(m.styles.Subtitle.Render("ID: "))
+		b.WriteString(strconv.Itoa(m.editing.ID))
+		b.WriteString("\n\n")
 	}
 
 	for i, id := range m.visibleFields() {
@@ -271,10 +297,13 @@ func (m ToolFormScreen) View() tea.View {
 	}
 
 	if m.saving {
-		b.WriteString("\n  " + m.styles.Subtitle.Render("Guardando..."))
+		b.WriteString("\n  ")
+		b.WriteString(m.styles.Subtitle.Render("Guardando..."))
 	}
 	if m.err != nil {
-		b.WriteString("\n  " + m.styles.ErrorStyle.Render("✗ ") + m.err.Error())
+		b.WriteString("\n  ")
+		b.WriteString(m.styles.ErrorStyle.Render("✗ "))
+		b.WriteString(m.err.Error())
 	}
 
 	return tea.NewView(b.String())
@@ -294,7 +323,7 @@ func (m ToolFormScreen) renderField(id toolFieldID, focused bool) string {
 
 	// Textarea de script: bloque multi-línea.
 	if id == tfContent {
-		return cursor + labelStyle.Render(label) + "\n   " +
+		return cursor + labelStyle.Render(label) + "\n  " +
 			m.scriptArea.View() + "\n\n"
 	}
 
