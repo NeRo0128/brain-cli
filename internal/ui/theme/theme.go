@@ -10,19 +10,54 @@ import (
 
 // Palette es un conjunto de colores para UN modo (dark o light).
 type Palette struct {
-	Text      color.Color
-	Muted     color.Color
-	Primary   color.Color
-	Secondary color.Color
+	// ============================================================
+	// Jerarquía de texto — 4 niveles
+	// ============================================================
+	Text     color.Color // texto normal
+	Emphasis color.Color // texto destacado (más brillante que Text)
+	Muted    color.Color // texto secundario (subtítulos, keys)
+	Faint    color.Color // texto muy tenue (hints, placeholders, bordes suaves)
 
-	SelectedRow color.Color
-	Border      color.Color
-	StatusBar   color.Color
+	// ============================================================
+	// Marca — 3 acentos
+	// ============================================================
+	Primary   color.Color // accent principal (selección, brand)
+	Secondary color.Color // accent secundario (keys, links)
+	Tertiary  color.Color // tercer acento (tags, highlights, decoración)
 
+	// ============================================================
+	// Superficies — 4 tonos
+	// ============================================================
+	SelectedRow color.Color // fila seleccionada (bg)
+	Border      color.Color // bordes normales
+	BorderFocus color.Color // borde con foco (accent)
+	StatusBar   color.Color // barra de estado (bg)
+
+	// ============================================================
+	// Estados semánticos — 4
+	// ============================================================
 	Success color.Color
 	Warning color.Color
 	Error   color.Color
+	Info    color.Color // azul informativo, distinto de Secondary
 
+	// ============================================================
+	// Prioridad (badges) — 3
+	// ============================================================
+	PriorityHigh   color.Color
+	PriorityMedium color.Color
+	PriorityLow    color.Color
+
+	// ============================================================
+	// Tipos de task (badges) — 3
+	// ============================================================
+	TypeScript  color.Color
+	TypeCommand color.Color
+	TypeAI      color.Color
+
+	// ============================================================
+	// Inputs — 2
+	// ============================================================
 	InputFocused color.Color
 	InputBlurred color.Color
 }

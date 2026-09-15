@@ -53,9 +53,10 @@ func TestNext_CyclesInOrder(t *testing.T) {
 }
 
 func TestResolve_DarkOnly(t *testing.T) {
-	tm := theme.Get("tokyo-night")
+	// Usar un tema que sí sea dark-only.
+	tm := theme.Get("nord")
 	if !tm.IsDarkOnly() {
-		t.Fatal("tokyo-night debería ser dark-only")
+		t.Fatal("nord debería ser dark-only")
 	}
 	p := tm.Resolve(false)
 	if p.Text != tm.Dark.Text {
