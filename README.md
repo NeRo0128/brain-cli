@@ -1,233 +1,361 @@
-# 🧠 Brain CLI
+# Brain CLI
 
-> Asistente personal de línea de comandos con capacidades de IA
+> Asistente personal de terminal con inteligencia artificial y automatización de sistemas.
 
-Brain CLI es un asistente TUI (Terminal User Interface) moderno construido en Go que automatiza tus tareas diarias del sistema y proporciona capacidades de inteligencia artificial.
+Brain CLI es una interfaz de línea de comandos (TUI) construida en Go que centraliza la ejecución de tareas del sistema, la gestión de herramientas y la interacción con proveedores de IA — todo desde la terminal, con una interfaz responsive y minimalista.
 
-## ✨ Características
+---
 
-- ⚡ **Automatización Inteligente**: Ejecuta scripts y comandos del sistema organizadamente
-- 🤖 **Integración con IA**: Multi-proveedor (OmniRoute, Ollama, OpenAI, DeepSeek)
-- 🎨 **Interfaz Elegante**: TUI moderna con Bubble Tea
-- 📊 **Historial Completo**: Guarda todas las ejecuciones en SQLite
-- 🔧 **Extensible**: Añade nuevas tareas y herramientas fácilmente
-- ⚙️ **Dockerizado**: Ejecuta en contenedores con persistencia
-- 📦 **Scripts Embebidos**: Binario autosuficiente
+## Características
 
-## 🚀 Quick Start
+- **Ejecución de tareas** — Scripts bash, comandos del sistema y operaciones con IA, ejecutados desde una lista centralizada.
+- **Gestión de herramientas** — CRUD completo de scripts y comandos reutilizables con soporte para bash, python, go y comandos nativos.
+- **Multi-proveedor de IA** — Integración con OmniRoute, Ollama y compatibilidad con OpenAI/DeepSeek/Anthropic.
+- **Historial persistente** — Cada ejecución se registra en SQLite con output, errores y métricas de rendimiento.
+- **6 temas de color** — Brain (default), Catppuccin, Tokyo Night, Nord, Rose Pine y Kanagawa. Cambio en tiempo real con `Ctrl+T`.
+- **Iconos nerd-font** — Glyphs para estados de ejecución, badges de tipo y prioridad.
+- **Diseño responsive** — Layout adaptativo con breakpoints para terminales pequeñas (S<80), medianas (M 80-119) y grandes (L>=120).
+- **Hotkeys configurables** — Bindings reasignables desde archivo de configuración YAML.
 
-### Prerrequisitos
+---
 
-- Go 1.23 o superior
-- Docker (opcional, para ejecución en contenedor)
-- Bash (para ejecutar scripts)
+## Instalación
 
-### Instalación
+### Requisitos previos
+
+- **Go 1.23+**
+- **Bash** (para ejecutar scripts del sistema)
+- **Nerd Font** (opcional, para iconos — ej. JetBrainsMono Nerd Font)
+
+### Compilar desde fuente
 
 ```bash
-# Clonar el repositorio
 git clone https://github.com/NeRo0128/brain-cli.git
 cd brain-cli
-
-# Instalar dependencias
 go mod download
-
-# Compilar
 go build -o brain-cli cmd/brain-cli/main.go
-
-# Ejecutar
 ./brain-cli
 ```
 
-### Desarrollo
+### Modo desarrollo
 
 ```bash
-# Ejecutar en modo desarrollo
 go run cmd/brain-cli/main.go
-
-# Ejecutar con debug logging
-DEBUG=1 go run cmd/brain-cli/main.go
-
-# Ejecutar tests
-go test ./...
-
-# Ejecutar tests con cobertura
-go test -cover ./...
 ```
 
 ### Docker
 
 ```bash
-# Build image
 docker build -f docker/Dockerfile -t brain-cli .
-
-# Run with docker-compose
-docker-compose -f docker/docker-compose.yml up -d
-
-# View logs
-docker-compose -f docker/docker-compose.yml logs -f brain-cli
+docker compose -f docker/docker-compose.yml up -d
 ```
-
-## 📋 Tareas Disponibles
-
-### Automatización del Sistema
-
-- **Conectar WiFi + VPN**: Conecta automáticamente a red WiFi y levanta VPN
-- **Levantar Stack Dev**: Inicia OmniRoute y OpenCode
-- **Limpiar Temporales**: Elimina archivos temporales y libera espacio
-- **Backup Rápido**: Copia archivos importantes a backup
-- **Monitor de Recursos**: Muestra uso de CPU, RAM y Disco
-
-### Tareas con IA
-
-- **Revisar Correos**: Clasifica correos por urgencia e importancia
-- **Resumir URL**: Extrae y resume contenido de URLs
-- **Chat con IA**: Conversación libre con el proveedor configurado
-
-## ⚙️ Configuración
-
-### Variables de Entorno
-
-```bash
-# Database
-DB_PATH=/app/data/brain.db
-
-# OmniRoute connection
-OMNIROUTE_URL=http://omniroute:20128
-OMNIROUTE_API_KEY=your-api-key
-
-# Encryption
-ENCRYPTION_KEY=your-encryption-key
-```
-
-### Archivos de Configuración
-
-- `configs/config.yaml`: Configuración general de la aplicación
-- `embed/migrations/`: Migraciones de base de datos
-- `embed/scripts/`: Scripts embebidos en el binario
-
-## 🏗️ Arquitectura
-
-Brain CLI sigue **Clean Architecture** con capas claramente separadas:
-
-```
-internal/
-├── core/        # Dominio (entidades e interfaces)
-├── usecases/    # Lógica de aplicación
-├── adapters/    # Implementaciones (SQLite, AI Providers, Executor)
-└── ui/          # Presentación (Bubble Tea TUI)
-```
-
-### Entidades Principales
-
-- **Task**: Unidad de trabajo ejecutable
-- **Execution**: Instancia de ejecución de una tarea
-- **Provider**: Proveedor de IA configurado
-- **Tool**: Herramienta/script ejecutable
-
-Ver [AGENTS.md](./AGENTS.md) para detalles completos de arquitectura y lógica de negocio.
-
-## 📦 Estructura del Proyecto
-
-```
-brain-cli/
-├── cmd/brain-cli/              # Entry point
-├── internal/
-│   ├── core/                   # Domain Layer
-│   ├── usecases/              # Application Layer
-│   ├── adapters/              # Infrastructure Layer
-│   └── ui/                    # Presentation Layer
-├── embed/                      # Archivos embebidos
-│   ├── scripts/               # Scripts por defecto
-│   └── migrations/            # Migraciones SQL
-├── docker/                     # Infraestructura Docker
-├── configs/                    # Configuración
-├── data/                       # Base de datos SQLite
-├── scripts/                    # Scripts personalizados
-├── docs/                       # Documentación
-└── pkg/                        # Paquetes reutilizables
-```
-
-## 🧪 Testing
-
-```bash
-# Run all tests
-go test ./...
-
-# With coverage
-go test -cover ./...
-
-# Generate coverage report
-go test -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out
-
-# Run benchmarks
-go test -bench=. ./...
-```
-
-## 📚 Documentación
-
-- [AGENTS.md](./AGENTS.md) - Arquitectura completa y lógica de negocio
-- [docs/plans/development-roadmap.md](./docs/plans/development-roadmap.md) - Plan de desarrollo detallado
-- [docs/MIGRATION_PLAN.md](./docs/MIGRATION_PLAN.md) - Plan de migración v1 → v2
-- [DEVELOPMENT.md](./docs/DEVELOPMENT.md) - Guía de desarrollo
-
-## 🛣️ Roadmap
-
-### Hito 1: Fundación (Semanas 1-2)
-- [x] Estructura de carpetas
-- [x] Documentación inicial
-- [x] Configuración con go.mod
-- [x] Dockerización
-- [ ] "Hello World" con Bubble Tea
-
-### Hito 2: Core y Tareas Básicas (Semanas 3-4)
-- [ ] Entidades del dominio
-- [ ] Ejecución de scripts
-- [ ] UI básica con lista de tareas
-
-### Hito 3: Integración con IA (Semanas 5-6)
-- [ ] Cliente HTTP para OmniRoute
-- [ ] Soporte Ollama
-- [ ] Tareas con IA
-
-### Hito 4: UI Avanzada (Semanas 7-8)
-- [ ] Navegación multi-pantalla
-- [ ] Historial de ejecuciones
-- [ ] Sistema de notificaciones
-
-### Hito 5: Pulido y Lanzamiento (Semanas 9-10)
-- [ ] Suite completa de tareas
-- [ ] Testing exhaustivo
-- [ ] Binarios para distribución
-
-## 🤝 Contribuir
-
-Las contribuciones son bienvenidas. Por favor:
-
-1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'feat: add amazing feature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
-
-## 📄 Licencia
-
-MIT License - Ver [LICENSE](LICENSE) para más detalles.
-
-## 👤 Autor
-
-**Nero**
-- GitHub: [@NeRo0128](https://github.com/NeRo0128)
-
-## 🙏 Agradecimientos
-
-- [Bubble Tea](https://github.com/charmbracelet/bubbletea) - Framework TUI
-- [SQLite](https://www.sqlite.org/) - Base de datos embebida
-- Comunidad de Go por las excelentes herramientas
 
 ---
 
-**Estado del proyecto**: 🏗️ En desarrollo activo  
-**Versión**: 2.0.0  
-**Última actualización**: 2026-09-07
+## Uso
+
+Al iniciar Brain CLI se presenta la **pantalla principal** con la lista de tareas disponibles. Navega con las teclas, selecciona una tarea y presiona `Enter` para ejecutarla.
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  🧠 Brain CLI v2.0           ● IA ready   12 tasks   3★ │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│   Conectar WiFi + VPN          [bash]     ★★★           │
+│   Levantar Stack Dev           [bash]     ★★☆           │
+│   Revisar Correos              [ai]       ★★★           │
+│   Limpiar Temporales          [command]   ★☆☆           │
+│   Resumir URL                  [ai]       ★★☆           │
+│                                                          │
+├──────────────────────────────────────────────────────────┤
+│  enter ejecutar  n nueva  d detalle  h historial  ? ayuda│
+└──────────────────────────────────────────────────────────┘
+```
+
+### Flujo típico
+
+1. Selecciona una tarea con `↑↓` o `j/k`
+2. Presiona `Enter` para ejecutar
+3. Observa el progreso en tiempo real con spinner y barra de progreso
+4. Al finalizar, revisa el resultado con scroll
+5. Presiona `r` para re-ejecutar o `Esc` para volver
+
+---
+
+## Atajos de teclado (Hotkeys)
+
+### Globales
+
+Disponibles desde cualquier pantalla.
+
+| Tecla | Acción |
+|-------|--------|
+| `↑` / `k` | Mover cursor arriba |
+| `↓` / `j` | Mover cursor abajo |
+| `PgUp` | Página arriba |
+| `PgDn` | Página abajo |
+| `g` | Ir al inicio de la lista |
+| `G` | Ir al final de la lista |
+| `Enter` | Confirmar / Ejecutar |
+| `Esc` | Volver / Cancelar |
+| `/` | Filtrar lista |
+| `Ctrl+T` | Cambiar tema de color |
+| `Ctrl+C` | Salir de la aplicación |
+| `q` | Salir (fuera de ejecución) |
+| `?` | Abrir pantalla de ayuda |
+
+### Pantalla Principal
+
+| Tecla | Acción |
+|-------|--------|
+| `Enter` | Ejecutar tarea seleccionada |
+| `n` | Crear nueva tarea |
+| `e` | Editar tarea seleccionada |
+| `Ctrl+D` | Eliminar tarea |
+| `d` | Ver detalle de la tarea |
+| `h` | Abrir historial de ejecuciones |
+
+### Pantalla de Detalle
+
+| Tecla | Acción |
+|-------|--------|
+| `Enter` | Ejecutar tarea |
+| `e` | Editar tarea |
+| `Esc` | Volver a la lista |
+
+### Pantalla de Resultado
+
+| Tecla | Acción |
+|-------|--------|
+| `r` | Re-ejecutar la tarea |
+| `Esc` | Volver |
+
+### Pantalla de Ejecución
+
+| Tecla | Acción |
+|-------|--------|
+| `Esc` | Cancelar ejecución en curso |
+
+### Pantalla de Historial
+
+| Tecla | Acción |
+|-------|--------|
+| `Enter` | Ver detalle de la ejecución seleccionada |
+| `Esc` | Volver a la pantalla principal |
+
+### Formulario de Tarea / Herramienta
+
+| Tecla | Acción |
+|-------|--------|
+| `Tab` / `Shift+Tab` | Mover foco entre campos |
+| `←` / `→` | Cambiar valor en selects (tipo, prioridad, etc.) |
+| `Ctrl+S` | Guardar cambios |
+| `Esc` | Cancelar y volver |
+
+---
+
+## Configuración
+
+Brain CLI se configura desde `configs/config.yaml`. Las variables de entorno se resuelven automáticamente con soporte para valores por defecto (`${VAR:-default}`).
+
+### Estructura del archivo
+
+```yaml
+app:
+  name: brain-cli
+
+database:
+  path: ${BRAIN_DB_PATH:-data/brain.db}
+  auto_migrate: true
+
+logging:
+  level: ${BRAIN_LOG_LEVEL:-info}        # debug | info | warn | error
+  format: ${BRAIN_LOG_FORMAT:-pretty}    # json | pretty
+  output_path: /tmp/brain-cli.log
+  max_size_mb: 100
+
+ui:
+  theme: ${BRAIN_THEME:-brain}           # brain | catppuccin | tokyo-night | nord | rose-pine | kanagawa
+  brand_style: ascii                     # ascii | minimal | none
+  icons: ${BRAIN_ICONS:-nerd-b}          # unicode | nerd-b | nerd-c
+
+scripts:
+  custom_dir: scripts
+```
+
+### Variables de entorno
+
+| Variable | Default | Descripción |
+|----------|---------|-------------|
+| `BRAIN_DB_PATH` | `data/brain.db` | Ruta al archivo SQLite |
+| `BRAIN_LOG_LEVEL` | `info` | Nivel de logging |
+| `BRAIN_LOG_FORMAT` | `pretty` | Formato de logs |
+| `BRAIN_THEME` | `brain` | Tema de color activo |
+| `BRAIN_ICONS` | `nerd-b` | Set de iconografía |
+| `BRAIN_CONFIG` | `configs/config.yaml` | Ruta al archivo de configuración |
+
+---
+
+## Temas
+
+Brain CLI incluye 6 paletas de color. Cambia entre ellas en cualquier momento con `Ctrl+T`.
+
+| Tema | Estilo | Colores principales |
+|------|--------|-------------------|
+| **brain** | Default, dark-only | Cyan primary, violet secondary, rose accents |
+| **catppuccin** | Macchiato (dark) / Latte (light) | Mauve primary, pink secondary |
+| **tokyo-night** | Dark-only | Blue primary, magenta secondary |
+| **nord** | Dark-only | Frost blue primary, aurora green accents |
+| **rose-pine** | Moon (dark) / Dawn (light) | Pine primary, gold secondary |
+| **kanagawa** | Dark-only | Wave blue primary, carp red accents |
+
+### Brand Style
+
+El header de la aplicación soporta 3 estilos de marca:
+
+- `ascii` — Texto plano `BrainCLI` con color de acento
+- `minimal` — Icono + nombre `🧠 Brain CLI` (default)
+- `none` — Sin marca visible
+
+---
+
+## Arquitectura
+
+Brain CLI sigue **Clean Architecture** con dependencias unidireccionales hacia el dominio.
+
+```
+┌─────────────────────────────────────────────────────┐
+│  UI (internal/ui/)                                  │
+│  Bubble Tea TUI · Lipgloss · Bubbles                │
+└──────────────────────┬──────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────┐
+│  Use Cases (internal/usecases/)                     │
+│  Task CRUD · Execution · AI · Provider · Tool       │
+└──────────────────────┬──────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────┐
+│  Domain (internal/core/)                            │
+│  Task · Execution · Provider · Tool · Config        │
+└──────────────────────▲──────────────────────────────┘
+                       │
+┌──────────────────────┴──────────────────────────────┐
+│  Adapters (internal/adapters/)                      │
+│  SQLite · Executor · AI Providers · Email · Config  │
+└─────────────────────────────────────────────────────┘
+```
+
+### Paquetes principales
+
+| Paquete | Responsabilidad |
+|---------|----------------|
+| `internal/core/` | Entidades, interfaces de repositorio, reglas de negocio |
+| `internal/usecases/` | Lógica de aplicación (CRUD, ejecución, IA) |
+| `internal/adapters/` | Implementaciones concretas (DB, executor, proveedores) |
+| `internal/ui/` | Presentación TUI, pantallas, componentes, estilos |
+| `internal/ui/theme/` | 6 paletas de color con soporte dark/light |
+| `internal/ui/icons/` | Sets de iconografía (unicode, nerd-font) |
+| `internal/ui/styles/` | Estilos Lipgloss derivados del tema activo |
+| `pkg/utils/` | Paquetes reutilizables (logger, validador, formateador) |
+
+---
+
+## Desarrollo
+
+### Ejecutar en desarrollo
+
+```bash
+go run cmd/brain-cli/main.go
+```
+
+### Ejecutar con debug
+
+```bash
+DEBUG=1 go run cmd/brain-cli/main.go
+```
+
+### Tests
+
+```bash
+go test ./...                         # todos los tests
+go test -cover ./...                  # con cobertura
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out      # reporte HTML
+go test -bench=. ./...                # benchmarks
+```
+
+### Lint y verificación
+
+```bash
+go vet ./...
+go fmt ./...
+goimports -w .
+```
+
+### Previsualizar iconos
+
+```bash
+go run cmd/icon-preview/main.go
+```
+
+---
+
+## Estructura del proyecto
+
+```
+brain-cli/
+├── cmd/
+│   ├── brain-cli/main.go            # Entry point principal
+│   └── icon-preview/main.go         # Dev tool: preview de iconos
+├── internal/
+│   ├── core/                         # Domain Layer
+│   │   ├── config/                   # Config entity + validation
+│   │   ├── execution/                # Execution entity
+│   │   ├── provider/                 # AI Provider entity
+│   │   ├── task/                     # Task entity
+│   │   └── tool/                     # Tool entity
+│   ├── usecases/                     # Application Layer
+│   │   ├── task/                     # Task CRUD + execution
+│   │   ├── tool/                     # Tool CRUD
+│   │   └── provider/                 # Provider management
+│   ├── adapters/                     # Infrastructure Layer
+│   │   ├── database/                 # SQLite + migrations + repos
+│   │   ├── executor/                 # Script/command executors
+│   │   ├── ai/                       # AI provider implementations
+│   │   └── config/                   # YAML config loader
+│   └── ui/                           # Presentation Layer
+│       ├── app.go                    # Root Bubble Tea model
+│       ├── update.go                 # Message routing
+│       ├── view.go                   # View composition
+│       ├── model.go                  # App state
+│       ├── screens/                  # 10 screens (main, detail, result, etc.)
+│       ├── components/               # Reusable components (toast, header, list)
+│       ├── styles/                   # Lipgloss styles from theme
+│       ├── theme/                    # 6 color palettes
+│       ├── icons/                    # Nerd-font icon sets
+│       └── keys/                     # Keybinding registry
+├── configs/config.yaml               # Configuración
+├── docker/                           # Docker infrastructure
+├── docs/                             # Documentación y planes
+└── pkg/utils/                        # Public packages
+```
+
+---
+
+## Contribuir
+
+1. Fork el repositorio
+2. Crea una rama (`git checkout -b feature/nueva-funcionalidad`)
+3. Haz commit con convención (`feat:`, `fix:`, `refactor:`)
+4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
+5. Abre un Pull Request
+
+---
+
+## Licencia
+
+MIT — Ver [LICENSE](LICENSE).
+
+---
+
+**Autor:** [Nero](https://github.com/NeRo0128) · **Versión:** 2.0.0 · **Estado:** En desarrollo activo
