@@ -1,33 +1,69 @@
-# Brain CLI
+<p align="center">
+  <code style="font-size: 11px; line-height: 1.1;">
+██████╗ ██████╗  █████╗ ██╗███╗   ██╗    ██████╗██╗     ██╗<br>
+██╔══██╗██╔══██╗██╔══██╗██║████╗  ██║   ██╔════╝██║     ██║<br>
+██████╔╝██████╔╝███████║██║██╔██╗ ██║   ██║     ██║     ██║<br>
+██╔══██╗██╔══██╗██╔══██║██║██║╚██╗██║── ██║     ██║     ██║<br>
+██████╔╝██║  ██║██║  ██║██║██║ ╚████║   ╚██████╗███████╗██║<br>
+╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝    ╚═════╝╚══════╝╚═╝
+  </code>
+</p>
 
-> Asistente personal de terminal con inteligencia artificial y automatización de sistemas.
+<p align="center">
+  <strong>Asistente personal de terminal con IA y automatización de sistemas</strong>
+</p>
 
-Brain CLI es una interfaz de línea de comandos (TUI) construida en Go que centraliza la ejecución de tareas del sistema, la gestión de herramientas y la interacción con proveedores de IA — todo desde la terminal, con una interfaz responsive y minimalista.
+<p align="center">
+  <a href="https://github.com/NeRo0128/brain-cli/actions"><img src="https://img.shields.io/github/actions/workflow/status/NeRo0128/brain-cli/ci.yml?branch=main&style=flat-square" alt="CI"></a>
+  <a href="https://goreportcard.com/report/github.com/NeRo0128/brain-cli"><img src="https://goreportcard.com/badge/github.com/NeRo0128/brain-cli?style=flat-square" alt="Go Report Card"></a>
+  <a href="https://pkg.go.dev/github.com/NeRo0128/brain-cli"><img src="https://img.shields.io/badge/go.dev-reference-007d9c?style=flat-square&logo=go" alt="Go Reference"></a>
+  <a href="https://github.com/NeRo0128/brain-cli/releases"><img src="https://img.shields.io/github/v/release/NeRo0128/brain-cli?style=flat-square" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/NeRo0128/brain-cli?style=flat-square" alt="License"></a>
+  <a href="https://github.com/NeRo0128/brain-cli/stargazers"><img src="https://img.shields.io/github/stars/NeRo0128/brain-cli?style=flat-square" alt="Stars"></a>
+</p>
+
+---
+
+Brain CLI es una **TUI (Terminal User Interface)** construida en Go que centraliza la ejecución de tareas del sistema, la gestión de herramientas y la interacción con proveedores de IA — todo desde la terminal, con una interfaz responsive, minimalista y totalmente configurable.
+
+### Vista principal
+
+<p align="center">
+  <img src="assets/captura.png" alt="Brain CLI main screen" width="800">
+</p>
 
 ---
 
 ## Características
 
-- **Ejecución de tareas** — Scripts bash, comandos del sistema y operaciones con IA, ejecutados desde una lista centralizada.
-- **Gestión de herramientas** — CRUD completo de scripts y comandos reutilizables con soporte para bash, python, go y comandos nativos.
-- **Multi-proveedor de IA** — Integración con OmniRoute, Ollama y compatibilidad con OpenAI/DeepSeek/Anthropic.
-- **Historial persistente** — Cada ejecución se registra en SQLite con output, errores y métricas de rendimiento.
-- **6 temas de color** — Brain (default), Catppuccin, Tokyo Night, Nord, Rose Pine y Kanagawa. Cambio en tiempo real con `Ctrl+T`.
-- **Iconos nerd-font** — Glyphs para estados de ejecución, badges de tipo y prioridad.
-- **Diseño responsive** — Layout adaptativo con breakpoints para terminales pequeñas (S<80), medianas (M 80-119) y grandes (L>=120).
-- **Hotkeys configurables** — Bindings reasignables desde archivo de configuración YAML.
+| Característica | Descripción |
+|----------------|-------------|
+| **Ejecución de tareas** | Scripts bash, comandos del sistema y operaciones con IA desde una lista centralizada |
+| **Gestión de herramientas** | CRUD completo de scripts reutilizables (bash, python, go, comandos nativos) |
+| **Multi-proveedor IA** | OmniRoute, Ollama, compatible con OpenAI/DeepSeek/Anthropic |
+| **Historial persistente** | SQLite con output, errores y métricas de rendimiento por ejecución |
+| **6 temas de color** | Brain, Catppuccin, Tokyo Night, Nord, Rose Pine, Kanagawa — cambio en tiempo real `Ctrl+T` |
+| **Iconos nerd-font** | Glyphs para estados, badges de tipo y prioridad |
+| **Diseño responsive** | Breakpoints S<80 / M 80-119 / L≥120 columnas |
+| **Hotkeys configurables** | Bindings reasignables desde YAML |
+
+### Demo: Temas
+
+<p align="center">
+  <img src="assets/demo-themes.gif" alt="Theme cycling demo" width="800">
+</p>
 
 ---
 
 ## Instalación
 
-### Requisitos previos
+### Requisitos
 
 - **Go 1.23+**
-- **Bash** (para ejecutar scripts del sistema)
-- **Nerd Font** (opcional, para iconos — ej. JetBrainsMono Nerd Font)
+- **Bash** (scripts del sistema)
+- **Nerd Font** (opcional, iconos — ej. JetBrainsMono Nerd Font)
 
-### Compilar desde fuente
+### Compilar
 
 ```bash
 git clone https://github.com/NeRo0128/brain-cli.git
@@ -37,7 +73,7 @@ go build -o brain-cli cmd/brain-cli/main.go
 ./brain-cli
 ```
 
-### Modo desarrollo
+### Desarrollo
 
 ```bash
 go run cmd/brain-cli/main.go
@@ -54,7 +90,7 @@ docker compose -f docker/docker-compose.yml up -d
 
 ## Uso
 
-Al iniciar Brain CLI se presenta la **pantalla principal** con la lista de tareas disponibles. Navega con las teclas, selecciona una tarea y presiona `Enter` para ejecutarla.
+Al iniciar se presenta la **pantalla principal** con la lista de tareas. Navega, selecciona y presiona `Enter` para ejecutar.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -74,91 +110,47 @@ Al iniciar Brain CLI se presenta la **pantalla principal** con la lista de tarea
 
 ### Flujo típico
 
-1. Selecciona una tarea con `↑↓` o `j/k`
-2. Presiona `Enter` para ejecutar
-3. Observa el progreso en tiempo real con spinner y barra de progreso
-4. Al finalizar, revisa el resultado con scroll
-5. Presiona `r` para re-ejecutar o `Esc` para volver
+1. Selecciona tarea con `↑↓` / `j/k`
+2. `Enter` → ejecuta con progreso en tiempo real (spinner + barra)
+3. Al finalizar, revisa resultado con scroll
+4. `r` re-ejecuta / `Esc` vuelve
 
 ---
 
-## Atajos de teclado (Hotkeys)
+## Atajos de teclado
 
-### Globales
-
-Disponibles desde cualquier pantalla.
+### Globales (desde cualquier pantalla)
 
 | Tecla | Acción |
 |-------|--------|
-| `↑` / `k` | Mover cursor arriba |
-| `↓` / `j` | Mover cursor abajo |
-| `PgUp` | Página arriba |
-| `PgDn` | Página abajo |
-| `g` | Ir al inicio de la lista |
-| `G` | Ir al final de la lista |
+| `↑` / `k` | Arriba |
+| `↓` / `j` | Abajo |
+| `PgUp` / `PgDn` | Página arriba/abajo |
+| `g` / `G` | Inicio / Final |
 | `Enter` | Confirmar / Ejecutar |
 | `Esc` | Volver / Cancelar |
 | `/` | Filtrar lista |
-| `Ctrl+T` | Cambiar tema de color |
-| `Ctrl+C` | Salir de la aplicación |
+| `Ctrl+T` | Cambiar tema |
+| `Ctrl+C` | Salir |
 | `q` | Salir (fuera de ejecución) |
-| `?` | Abrir pantalla de ayuda |
+| `?` | Ayuda |
 
-### Pantalla Principal
+### Por pantalla
 
-| Tecla | Acción |
-|-------|--------|
-| `Enter` | Ejecutar tarea seleccionada |
-| `n` | Crear nueva tarea |
-| `e` | Editar tarea seleccionada |
-| `Ctrl+D` | Eliminar tarea |
-| `d` | Ver detalle de la tarea |
-| `h` | Abrir historial de ejecuciones |
-
-### Pantalla de Detalle
-
-| Tecla | Acción |
-|-------|--------|
-| `Enter` | Ejecutar tarea |
-| `e` | Editar tarea |
-| `Esc` | Volver a la lista |
-
-### Pantalla de Resultado
-
-| Tecla | Acción |
-|-------|--------|
-| `r` | Re-ejecutar la tarea |
-| `Esc` | Volver |
-
-### Pantalla de Ejecución
-
-| Tecla | Acción |
-|-------|--------|
-| `Esc` | Cancelar ejecución en curso |
-
-### Pantalla de Historial
-
-| Tecla | Acción |
-|-------|--------|
-| `Enter` | Ver detalle de la ejecución seleccionada |
-| `Esc` | Volver a la pantalla principal |
-
-### Formulario de Tarea / Herramienta
-
-| Tecla | Acción |
-|-------|--------|
-| `Tab` / `Shift+Tab` | Mover foco entre campos |
-| `←` / `→` | Cambiar valor en selects (tipo, prioridad, etc.) |
-| `Ctrl+S` | Guardar cambios |
-| `Esc` | Cancelar y volver |
+| Pantalla | Teclas disponibles |
+|----------|-------------------|
+| **Principal** | `Enter` ejecutar, `n` nueva, `e` editar, `Ctrl+D` borrar, `d` detalle, `h` historial |
+| **Detalle** | `Enter` ejecutar, `e` editar, `Esc` volver |
+| **Resultado** | `r` re-ejecutar, `Esc` volver |
+| **Ejecución** | `Esc` cancelar |
+| **Historial** | `Enter` ver detalle, `Esc` volver |
+| **Formularios** | `Tab`/`Shift+Tab` navegar, `←`/`→` cambiar select, `Ctrl+S` guardar, `Esc` cancelar |
 
 ---
 
 ## Configuración
 
-Brain CLI se configura desde `configs/config.yaml`. Las variables de entorno se resuelven automáticamente con soporte para valores por defecto (`${VAR:-default}`).
-
-### Estructura del archivo
+Archivo: `configs/config.yaml` (variables `${VAR:-default}` soportadas).
 
 ```yaml
 app:
@@ -169,15 +161,15 @@ database:
   auto_migrate: true
 
 logging:
-  level: ${BRAIN_LOG_LEVEL:-info}        # debug | info | warn | error
-  format: ${BRAIN_LOG_FORMAT:-pretty}    # json | pretty
+  level: ${BRAIN_LOG_LEVEL:-info}
+  format: ${BRAIN_LOG_FORMAT:-pretty}
   output_path: /tmp/brain-cli.log
   max_size_mb: 100
 
 ui:
-  theme: ${BRAIN_THEME:-brain}           # brain | catppuccin | tokyo-night | nord | rose-pine | kanagawa
-  brand_style: ascii                     # ascii | minimal | none
-  icons: ${BRAIN_ICONS:-nerd-b}          # unicode | nerd-b | nerd-c
+  theme: ${BRAIN_THEME:-brain}
+  brand_style: ascii-big          # ascii-big | ascii-slim | minimal | none
+  icons: ${BRAIN_ICONS:-nerd-b}   # unicode | nerd-b | nerd-c
 
 scripts:
   custom_dir: scripts
@@ -187,205 +179,68 @@ scripts:
 
 | Variable | Default | Descripción |
 |----------|---------|-------------|
-| `BRAIN_DB_PATH` | `data/brain.db` | Ruta al archivo SQLite |
-| `BRAIN_LOG_LEVEL` | `info` | Nivel de logging |
-| `BRAIN_LOG_FORMAT` | `pretty` | Formato de logs |
-| `BRAIN_THEME` | `brain` | Tema de color activo |
-| `BRAIN_ICONS` | `nerd-b` | Set de iconografía |
-| `BRAIN_CONFIG` | `configs/config.yaml` | Ruta al archivo de configuración |
+| `BRAIN_DB_PATH` | `data/brain.db` | SQLite path |
+| `BRAIN_LOG_LEVEL` | `info` | debug \| info \| warn \| error |
+| `BRAIN_LOG_FORMAT` | `pretty` | json \| pretty |
+| `BRAIN_THEME` | `brain` | brain \| catppuccin \| tokyo-night \| nord \| rose-pine \| kanagawa |
+| `BRAIN_ICONS` | `nerd-b` | unicode \| nerd-b \| nerd-c |
+| `BRAIN_CONFIG` | `configs/config.yaml` | Config file path |
 
 ---
 
 ## Temas
 
-Brain CLI incluye 6 paletas de color. Cambia entre ellas en cualquier momento con `Ctrl+T`.
+6 paletas incluidas. `Ctrl+T` cicla entre ellas en runtime.
 
-| Tema | Estilo | Colores principales |
-|------|--------|-------------------|
+| Tema | Estilo | Colores |
+|------|--------|---------|
 | **brain** | Default, dark-only | Cyan primary, violet secondary, rose accents |
-| **catppuccin** | Macchiato (dark) / Latte (light) | Mauve primary, pink secondary |
+| **catppuccin** | Macchiato / Latte | Mauve primary, pink secondary |
 | **tokyo-night** | Dark-only | Blue primary, magenta secondary |
-| **nord** | Dark-only | Frost blue primary, aurora green accents |
-| **rose-pine** | Moon (dark) / Dawn (light) | Pine primary, gold secondary |
-| **kanagawa** | Dark-only | Wave blue primary, carp red accents |
+| **nord** | Dark-only | Frost blue, aurora green |
+| **rose-pine** | Moon / Dawn | Pine primary, gold secondary |
+| **kanagawa** | Dark-only | Wave blue, carp red |
 
-### Brand Style
+### Brand Style (header)
 
-El header de la aplicación soporta 3 estilos de marca:
-
-- `ascii` — Texto plano `BrainCLI` con color de acento
-- `minimal` — Icono + nombre `🧠 Brain CLI` (default)
-- `none` — Sin marca visible
-
----
-
-## Arquitectura
-
-Brain CLI sigue **Clean Architecture** con dependencias unidireccionales hacia el dominio.
-
-```
-┌─────────────────────────────────────────────────────┐
-│  UI (internal/ui/)                                  │
-│  Bubble Tea TUI · Lipgloss · Bubbles                │
-└──────────────────────┬──────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│  Use Cases (internal/usecases/)                     │
-│  Task CRUD · Execution · AI · Provider · Tool       │
-└──────────────────────┬──────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│  Domain (internal/core/)                            │
-│  Task · Execution · Provider · Tool · Config        │
-└──────────────────────▲──────────────────────────────┘
-                       │
-┌──────────────────────┴──────────────────────────────┐
-│  Adapters (internal/adapters/)                      │
-│  SQLite · Executor · AI Providers · Email · Config  │
-└─────────────────────────────────────────────────────┘
-```
-
-### Paquetes principales
-
-| Paquete | Responsabilidad |
-|---------|----------------|
-| `internal/core/` | Entidades, interfaces de repositorio, reglas de negocio |
-| `internal/usecases/` | Lógica de aplicación (CRUD, ejecución, IA) |
-| `internal/adapters/` | Implementaciones concretas (DB, executor, proveedores) |
-| `internal/ui/` | Presentación TUI, pantallas, componentes, estilos |
-| `internal/ui/theme/` | 6 paletas de color con soporte dark/light |
-| `internal/ui/icons/` | Sets de iconografía (unicode, nerd-font) |
-| `internal/ui/styles/` | Estilos Lipgloss derivados del tema activo |
-| `pkg/utils/` | Paquetes reutilizables (logger, validador, formateador) |
-
----
-
-## Desarrollo
-
-### Ejecutar en desarrollo
-
-```bash
-go run cmd/brain-cli/main.go
-```
-
-### Ejecutar con debug
-
-```bash
-DEBUG=1 go run cmd/brain-cli/main.go
-```
-
-### Tests
-
-```bash
-go test ./...                         # todos los tests
-go test -cover ./...                  # con cobertura
-go test -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out      # reporte HTML
-go test -bench=. ./...                # benchmarks
-```
-
-### Lint y verificación
-
-```bash
-go vet ./...
-go fmt ./...
-goimports -w .
-```
-
-### Previsualizar iconos
-
-```bash
-go run cmd/icon-preview/main.go
-```
-
----
-
-## Estructura del proyecto
-
-```
-brain-cli/
-├── cmd/
-│   ├── brain-cli/main.go            # Entry point principal
-│   └── icon-preview/main.go         # Dev tool: preview de iconos
-├── internal/
-│   ├── core/                         # Domain Layer
-│   │   ├── config/                   # Config entity + validation
-│   │   ├── execution/                # Execution entity
-│   │   ├── provider/                 # AI Provider entity
-│   │   ├── task/                     # Task entity
-│   │   └── tool/                     # Tool entity
-│   ├── usecases/                     # Application Layer
-│   │   ├── task/                     # Task CRUD + execution
-│   │   ├── tool/                     # Tool CRUD
-│   │   └── provider/                 # Provider management
-│   ├── adapters/                     # Infrastructure Layer
-│   │   ├── database/                 # SQLite + migrations + repos
-│   │   ├── executor/                 # Script/command executors
-│   │   ├── ai/                       # AI provider implementations
-│   │   └── config/                   # YAML config loader
-│   └── ui/                           # Presentation Layer
-│       ├── app.go                    # Root Bubble Tea model
-│       ├── update.go                 # Message routing
-│       ├── view.go                   # View composition
-│       ├── model.go                  # App state
-│       ├── screens/                  # 10 screens (main, detail, result, etc.)
-│       ├── components/               # Reusable components (toast, header, list)
-│       ├── styles/                   # Lipgloss styles from theme
-│       ├── theme/                    # 6 color palettes
-│       ├── icons/                    # Nerd-font icon sets
-│       └── keys/                     # Keybinding registry
-├── configs/config.yaml               # Configuración
-├── docker/                           # Docker infrastructure
-├── docs/                             # Documentación y planes
-└── pkg/utils/                        # Public packages
-```
+| Valor | Visual |
+|-------|--------|
+| `ascii-big` | ANSI Shadow 6 líneas (default) |
+| `ascii-slim` | Half-blocks 3 líneas |
+| `minimal` | `🧠 Brain CLI` |
+| `none` | Sin marca |
 
 ---
 
 ## Widget flotante (Niri + Ghostty)
 
-Brain CLI puede ejecutarse como un **widget de escritorio desplegable** al estilo Quake/Guake. Se abre con un atajo de teclado, aparece centrado flotando sobre el escritorio, y se cierra desde la propia TUI.
-
-**Flujo:** `Super+B` → Brain CLI aparece → trabajas → `q` → se cierra → `Super+B` → se reabre.
+Brain CLI como **drop-down terminal** al estilo Quake/Guake: `Super+B` abre centrado, `q` cierra, `Super+B` reabre.
 
 ### Requisitos
 
-| Componente | Propósito |
-|------------|-----------|
-| **Niri** | Compositor Wayland (soporte flotante) |
-| **Ghostty** | Terminal con config dedicada |
-| **`jq`** | Parsear JSON de `niri msg` |
+| Componente | Uso |
+|------------|-----|
+| Niri | Compositor Wayland |
+| Ghostty | Terminal con config dedicada |
+| `jq` | Parsear `niri msg --json` |
 
 ```bash
-command -v niri ghostty jq  # verificar dependencias
+command -v niri ghostty jq
 ```
 
-### Ghostty: config dedicada
-
-Crea un archivo de configuración exclusivo para el widget. Esto evita que las opciones afecten a tus terminales normales.
-
-**`~/.config/ghostty/config-drop`**:
+### Ghostty config (`~/.config/ghostty/config-drop`)
 
 ```ini
-# Título único — Niri lo usa como identificador de ventana.
 title = BrainCLIDrop
-
-# Sin decoraciones de ventana (más limpio para flotante).
 window-decoration = false
-
-# Tamaño en celdas (103x32 ≈ 800x700 px con fuente por defecto).
 window-width = 103
 window-height = 32
-
-# Fondo 100% opaco para legibilidad.
 background-opacity = 1
 ```
 
-> El título es la clave: Ghostty/GTK4 en Wayland ignora `--class` y `GDK_APP_ID`. El título sí se respeta y Niri puede matchearlo.
+> El título es clave: Ghostty/GTK4 en Wayland ignora `--class` y `GDK_APP_ID`. El título sí se respeta.
 
-### Niri: window-rule
-
-Añade esta regla a `~/.config/niri/config.kdl`:
+### Niri window-rule (`~/.config/niri/config.kdl`)
 
 ```kdl
 window-rule {
@@ -397,118 +252,69 @@ window-rule {
 }
 ```
 
-| Campo | Descripción |
-|-------|-------------|
-| `match title=` | Matchea por título (no `app-id`, que Ghostty no respeta) |
-| `open-floating true` | Abre la ventana flotante |
-| `opacity 1.0` | Sobreescribe reglas globales de transparencia |
-| `default-column-width` | Ancho fijo en píxeles |
-| `default-window-height` | Alto fijo en píxeles |
+Valida: `niri validate && niri msg action load-config-file`
 
-Valida y recarga:
-
-```bash
-niri validate
-niri msg action load-config-file
-```
-
-### Script de toggle
-
-Crea `~/.local/bin/tdrop-niri.sh`:
+### Script toggle (`~/.local/bin/tdrop-niri.sh`)
 
 ```bash
 #!/bin/bash
-# tdrop-niri.sh — Drop-down toggle para Brain CLI en Niri.
 set -e
-
 DROP_TITLE="BrainCLIDrop"
 BRAIN_DIR="${BRAIN_DIR:-$HOME/brain-cli}"
 BRAIN_CLI="$BRAIN_DIR/build/brain-cli"
 GHOSTTY_CONFIG="${GHOSTTY_CONFIG:-$HOME/.config/ghostty/config-drop}"
 
-if [ ! -x "$BRAIN_CLI" ]; then
-    echo "brain-cli no encontrado en $BRAIN_CLI"
-    echo "Compila: cd $BRAIN_DIR && go build -o build/brain-cli ./cmd/brain-cli"
-    exit 1
-fi
+[ ! -x "$BRAIN_CLI" ] && { echo "Compila brain-cli primero"; exit 1; }
 
-WINDOW_JSON=$(niri msg --json windows 2>/dev/null \
-    | jq -c --arg title "$DROP_TITLE" '.[] | select(.title == $title)')
+WINDOW_JSON=$(niri msg --json windows 2>/dev/null | jq -c --arg t "$DROP_TITLE" '.[] | select(.title == $t)')
 
-# No existe → lanzar
 if [ -z "$WINDOW_JSON" ]; then
-    niri msg action spawn -- \
-        ghostty \
-        --config-file="$GHOSTTY_CONFIG" \
-        -e bash -c "cd '$BRAIN_DIR' && exec '$BRAIN_CLI'"
+    niri msg action spawn -- ghostty --config-file="$GHOSTTY_CONFIG" -e bash -c "cd '$BRAIN_DIR' && exec '$BRAIN_CLI'"
     exit 0
 fi
 
-# Existe → enfocar
-WIN_ID=$(echo "$WINDOW_JSON" | jq -r '.id')
-niri msg action focus-window --id "$WIN_ID"
+niri msg action focus-window --id "$(echo "$WINDOW_JSON" | jq -r '.id')"
 ```
 
 ```bash
 chmod +x ~/.local/bin/tdrop-niri.sh
 ```
 
-### Atajo de teclado
-
-En `~/.config/niri/keybinds.kdl`:
+### Atajo (`~/.config/niri/keybinds.kdl`)
 
 ```kdl
 Mod+B { spawn-sh "/home/$USER/.local/bin/tdrop-niri.sh"; }
 ```
 
-> Usa ruta absoluta — Niri no expande `~` dentro de `spawn-sh`.
+> Ruta absoluta — Niri no expande `~`.
 
-### Evitar que scripts roben el foco
+### Demo: Widget abriendo Zed + Ghostty
 
-Si desde Brain CLI lanzas apps (editores, terminales, navegadores), puedes evitar que roben el foco. El truco: capturar el foco antes y restaurarlo después.
+<p align="center">
+  <img src="assets/demo-widget_open_dev.gif" alt="Widget opening dev environment" width="800">
+</p>
 
-**`~/.local/bin/lib/refocus.sh`**:
+### Preservar foco al lanzar apps
+
+Si desde Brain CLI lanzas apps (editor, terminal, navegador), evita que roben el foco:
+
+**`~/.local/bin/lib/refocus.sh`**
 
 ```bash
-#!/bin/bash
 capture_focus() {
-    if command -v niri >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
-        niri msg --json focused-window 2>/dev/null | jq -r '.id // empty'
-    fi
+    command -v niri >/dev/null && command -v jq >/dev/null \
+        && niri msg --json focused-window 2>/dev/null | jq -r '.id // empty'
 }
 
 restore_focus() {
-    local win_id="$1"
-    if [ -n "$win_id" ]; then
-        sleep 1
-        niri msg action focus-window --id "$win_id" 2>/dev/null || true
-    fi
+    local id="$1"
+    [ -n "$id" ] && { sleep 1; niri msg action focus-window --id "$id" 2>/dev/null || true; }
 }
 ```
 
-Uso en cualquier script:
+Uso:
 
 ```bash
-source ~/.local/bin/lib/refocus.sh
-FOCUS=$(capture_focus)
-
-setsid my-editor </dev/null >/dev/null 2>&1 &
-setsid my-terminal </dev/null >/dev/null 2>&1 &
-
-restore_focus "$FOCUS"
-```
-
-`setsid` crea una nueva sesión que sobrevive al padre, evitando que los hijos reciban `SIGHUP` al terminar el script.
-
-### Ejemplo: entorno dev sin perder foco
-
-**`scripts/open-dev.sh`**:
-
-```bash
-#!/bin/bash
-set -e
-WORK_DIR="${1:-$PWD}"
-
 source ~/.local/bin/lib/refocus.sh
 FOCUS=$(capture_focus)
 
@@ -516,30 +322,111 @@ setsid zed "$WORK_DIR" </dev/null >/dev/null 2>&1 &
 setsid ghostty --working-directory="$WORK_DIR" </dev/null >/dev/null 2>&1 &
 
 restore_focus "$FOCUS"
-echo "Entorno lanzado en $WORK_DIR"
 ```
 
-Regístralo como Tool en Brain CLI (`n` → tipo bash), crea una Task que lo use. Al ejecutarlo desde la TUI: Zed + Ghostty se abren, Brain CLI mantiene el foco, `q` cierra la TUI y Zed queda listo.
+`setsid` desacopla del padre evitando `SIGHUP`.
 
 ### Troubleshooting
 
 | Síntoma | Causa | Fix |
 |---------|-------|-----|
-| `niri validate` falla | Usaste `#` como comentario | KDL solo acepta `//` o `/* */` |
-| Ventana no es flotante | El título no matchea | `niri msg --json windows \| jq '.[].title'` para ver títulos reales |
-| Ventana no se centra | Niri recuerda último tamaño | Redimensiónala, ciérrala, reábrela |
-| Tamaño del config no se aplica | Niri guarda tamaño por ventana | Cambia el título (`BrainCLIDropV2`) y matchea el nuevo |
-| App lanzada roba el foco | Comportamiento por defecto | Usa `capture_focus` / `restore_focus` |
+| `niri validate` falla | `#` como comentario | KDL usa `//` o `/* */` |
+| No flotante | Título no matchea | `niri msg --json windows \| jq '.[].title'` |
+| No centrada | Niri recuerda tamaño | Redimensiona → cierra → reabre |
+| Tamaño no aplica | Niri guarda por ventana | Cambia título (`BrainCLIDropV2`) |
+| App roba foco | Default behavior | Usa `capture_focus`/`restore_focus` |
+
+---
+
+## Arquitectura
+
+Clean Architecture con dependencias hacia el dominio.
+
+```
+┌─────────────────────────────────────────────────────┐
+│  UI (internal/ui/)  — Bubble Tea, Lipgloss, Bubbles │
+└──────────────────────┬──────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────┐
+│  Use Cases (internal/usecases/)                     │
+│  Task · Execution · AI · Provider · Tool            │
+└──────────────────────┬──────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────┐
+│  Domain (internal/core/)                            │
+│  Task · Execution · Provider · Tool · Config        │
+└──────────────────────┲──────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────┐
+│  Adapters (internal/adapters/)                      │
+│  SQLite · Executor · AI Providers · Email · Config  │
+└─────────────────────────────────────────────────────┘
+```
+
+| Paquete | Responsabilidad |
+|---------|----------------|
+| `core/` | Entidades, interfaces, reglas de negocio |
+| `usecases/` | Lógica de aplicación (CRUD, ejecución, IA) |
+| `adapters/` | Implementaciones (DB, executor, proveedores) |
+| `ui/` | TUI, pantallas, componentes, estilos, temas, iconos |
+| `pkg/utils/` | Logger, validador, formateador |
+
+---
+
+## Desarrollo
+
+```bash
+# Ejecutar
+go run cmd/brain-cli/main.go
+
+# Tests
+go test ./...
+go test -cover ./...
+go test -bench=. ./...
+
+# Lint
+go vet ./...
+go fmt ./...
+goimports -w .
+
+# Preview iconos
+go run cmd/icon-preview/main.go
+```
+
+---
+
+## Estructura
+
+```
+brain-cli/
+├── cmd/
+│   ├── brain-cli/main.go
+│   └── icon-preview/main.go
+├── internal/
+│   ├── core/        # Domain
+│   ├── usecases/    # Application
+│   ├── adapters/    # Infrastructure
+│   └── ui/          # Presentation
+│       ├── screens/     # 10 pantallas
+│       ├── components/  # toast, header, list, progress
+│       ├── styles/      # Lipgloss desde tema
+│       ├── theme/       # 6 paletas
+│       ├── icons/       # Nerd-font sets
+│       └── keys/        # Keybindings
+├── configs/config.yaml
+├── docker/
+├── docs/
+└── assets/          # capturas y demos
+```
 
 ---
 
 ## Contribuir
 
-1. Fork el repositorio
-2. Crea una rama (`git checkout -b feature/nueva-funcionalidad`)
-3. Haz commit con convención (`feat:`, `fix:`, `refactor:`)
-4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
-5. Abre un Pull Request
+1. Fork
+2. Rama: `git checkout -b feature/nueva-funcionalidad`
+3. Commit convencional: `feat:`, `fix:`, `refactor:`
+4. Push + Pull Request
 
 ---
 
