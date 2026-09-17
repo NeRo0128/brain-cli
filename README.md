@@ -1,12 +1,12 @@
 <p align="center">
-  <code style="font-size: 11px; line-height: 1.1;">
-██████╗ ██████╗  █████╗ ██╗███╗   ██╗    ██████╗██╗     ██╗<br>
-██╔══██╗██╔══██╗██╔══██╗██║████╗  ██║   ██╔════╝██║     ██║<br>
-██████╔╝██████╔╝███████║██║██╔██╗ ██║   ██║     ██║     ██║<br>
-██╔══██╗██╔══██╗██╔══██║██║██║╚██╗██║── ██║     ██║     ██║<br>
-██████╔╝██║  ██║██║  ██║██║██║ ╚████║   ╚██████╗███████╗██║<br>
+  <pre style="font-size: 11px; line-height: 1.1; margin: 0;">
+██████╗ ██████╗  █████╗ ██╗███╗   ██╗    ██████╗██╗     ██╗
+██╔══██╗██╔══██╗██╔══██╗██║████╗  ██║   ██╔════╝██║     ██║
+██████╔╝██████╔╝███████║██║██╔██╗ ██║   ██║     ██║     ██║
+██╔══██╗██╔══██╗██╔══██║██║██║╚██╗██║── ██║     ██║     ██║
+██████╔╝██║  ██║██║  ██║██║██║ ╚████║   ╚██████╗███████╗██║
 ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝    ╚═════╝╚══════╝╚═╝
-  </code>
+  </pre>
 </p>
 
 <p align="center">
@@ -36,16 +36,16 @@ Brain CLI es una **TUI (Terminal User Interface)** construida en Go que centrali
 
 ## Características
 
-| Característica | Descripción |
-|----------------|-------------|
-| **Ejecución de tareas** | Scripts bash, comandos del sistema y operaciones con IA desde una lista centralizada |
-| **Gestión de herramientas** | CRUD completo de scripts reutilizables (bash, python, go, comandos nativos) |
-| **Multi-proveedor IA** | OmniRoute, Ollama, compatible con OpenAI/DeepSeek/Anthropic |
-| **Historial persistente** | SQLite con output, errores y métricas de rendimiento por ejecución |
-| **6 temas de color** | Brain, Catppuccin, Tokyo Night, Nord, Rose Pine, Kanagawa — cambio en tiempo real `Ctrl+T` |
-| **Iconos nerd-font** | Glyphs para estados, badges de tipo y prioridad |
-| **Diseño responsive** | Breakpoints S<80 / M 80-119 / L≥120 columnas |
-| **Hotkeys configurables** | Bindings reasignables desde YAML |
+| Característica              | Descripción                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------ |
+| **Ejecución de tareas**     | Scripts bash, comandos del sistema y operaciones con IA desde una lista centralizada       |
+| **Gestión de herramientas** | CRUD completo de scripts reutilizables (bash, python, go, comandos nativos)                |
+| **Multi-proveedor IA**      | OmniRoute, Ollama, compatible con OpenAI/DeepSeek/Anthropic                                |
+| **Historial persistente**   | SQLite con output, errores y métricas de rendimiento por ejecución                         |
+| **6 temas de color**        | Brain, Catppuccin, Tokyo Night, Nord, Rose Pine, Kanagawa — cambio en tiempo real `Ctrl+T` |
+| **Iconos nerd-font**        | Glyphs para estados, badges de tipo y prioridad                                            |
+| **Diseño responsive**       | Breakpoints S<80 / M 80-119 / L≥120 columnas                                               |
+| **Hotkeys configurables**   | Bindings reasignables desde YAML                                                           |
 
 ### Demo: Temas
 
@@ -121,30 +121,30 @@ Al iniciar se presenta la **pantalla principal** con la lista de tareas. Navega,
 
 ### Globales (desde cualquier pantalla)
 
-| Tecla | Acción |
-|-------|--------|
-| `↑` / `k` | Arriba |
-| `↓` / `j` | Abajo |
-| `PgUp` / `PgDn` | Página arriba/abajo |
-| `g` / `G` | Inicio / Final |
-| `Enter` | Confirmar / Ejecutar |
-| `Esc` | Volver / Cancelar |
-| `/` | Filtrar lista |
-| `Ctrl+T` | Cambiar tema |
-| `Ctrl+C` | Salir |
-| `q` | Salir (fuera de ejecución) |
-| `?` | Ayuda |
+| Tecla           | Acción                     |
+| --------------- | -------------------------- |
+| `↑` / `k`       | Arriba                     |
+| `↓` / `j`       | Abajo                      |
+| `PgUp` / `PgDn` | Página arriba/abajo        |
+| `g` / `G`       | Inicio / Final             |
+| `Enter`         | Confirmar / Ejecutar       |
+| `Esc`           | Volver / Cancelar          |
+| `/`             | Filtrar lista              |
+| `Ctrl+T`        | Cambiar tema               |
+| `Ctrl+C`        | Salir                      |
+| `q`             | Salir (fuera de ejecución) |
+| `?`             | Ayuda                      |
 
 ### Por pantalla
 
-| Pantalla | Teclas disponibles |
-|----------|-------------------|
-| **Principal** | `Enter` ejecutar, `n` nueva, `e` editar, `Ctrl+D` borrar, `d` detalle, `h` historial |
-| **Detalle** | `Enter` ejecutar, `e` editar, `Esc` volver |
-| **Resultado** | `r` re-ejecutar, `Esc` volver |
-| **Ejecución** | `Esc` cancelar |
-| **Historial** | `Enter` ver detalle, `Esc` volver |
-| **Formularios** | `Tab`/`Shift+Tab` navegar, `←`/`→` cambiar select, `Ctrl+S` guardar, `Esc` cancelar |
+| Pantalla        | Teclas disponibles                                                                   |
+| --------------- | ------------------------------------------------------------------------------------ |
+| **Principal**   | `Enter` ejecutar, `n` nueva, `e` editar, `Ctrl+D` borrar, `d` detalle, `h` historial |
+| **Detalle**     | `Enter` ejecutar, `e` editar, `Esc` volver                                           |
+| **Resultado**   | `r` re-ejecutar, `Esc` volver                                                        |
+| **Ejecución**   | `Esc` cancelar                                                                       |
+| **Historial**   | `Enter` ver detalle, `Esc` volver                                                    |
+| **Formularios** | `Tab`/`Shift+Tab` navegar, `←`/`→` cambiar select, `Ctrl+S` guardar, `Esc` cancelar  |
 
 ---
 
@@ -168,8 +168,8 @@ logging:
 
 ui:
   theme: ${BRAIN_THEME:-brain}
-  brand_style: ascii-big          # ascii-big | ascii-slim | minimal | none
-  icons: ${BRAIN_ICONS:-nerd-b}   # unicode | nerd-b | nerd-c
+  brand_style: ascii-big # ascii-big | ascii-slim | minimal | none
+  icons: ${BRAIN_ICONS:-nerd-b} # unicode | nerd-b | nerd-c
 
 scripts:
   custom_dir: scripts
@@ -177,14 +177,14 @@ scripts:
 
 ### Variables de entorno
 
-| Variable | Default | Descripción |
-|----------|---------|-------------|
-| `BRAIN_DB_PATH` | `data/brain.db` | SQLite path |
-| `BRAIN_LOG_LEVEL` | `info` | debug \| info \| warn \| error |
-| `BRAIN_LOG_FORMAT` | `pretty` | json \| pretty |
-| `BRAIN_THEME` | `brain` | brain \| catppuccin \| tokyo-night \| nord \| rose-pine \| kanagawa |
-| `BRAIN_ICONS` | `nerd-b` | unicode \| nerd-b \| nerd-c |
-| `BRAIN_CONFIG` | `configs/config.yaml` | Config file path |
+| Variable           | Default               | Descripción                                                         |
+| ------------------ | --------------------- | ------------------------------------------------------------------- |
+| `BRAIN_DB_PATH`    | `data/brain.db`       | SQLite path                                                         |
+| `BRAIN_LOG_LEVEL`  | `info`                | debug \| info \| warn \| error                                      |
+| `BRAIN_LOG_FORMAT` | `pretty`              | json \| pretty                                                      |
+| `BRAIN_THEME`      | `brain`               | brain \| catppuccin \| tokyo-night \| nord \| rose-pine \| kanagawa |
+| `BRAIN_ICONS`      | `nerd-b`              | unicode \| nerd-b \| nerd-c                                         |
+| `BRAIN_CONFIG`     | `configs/config.yaml` | Config file path                                                    |
 
 ---
 
@@ -192,23 +192,23 @@ scripts:
 
 6 paletas incluidas. `Ctrl+T` cicla entre ellas en runtime.
 
-| Tema | Estilo | Colores |
-|------|--------|---------|
-| **brain** | Default, dark-only | Cyan primary, violet secondary, rose accents |
-| **catppuccin** | Macchiato / Latte | Mauve primary, pink secondary |
-| **tokyo-night** | Dark-only | Blue primary, magenta secondary |
-| **nord** | Dark-only | Frost blue, aurora green |
-| **rose-pine** | Moon / Dawn | Pine primary, gold secondary |
-| **kanagawa** | Dark-only | Wave blue, carp red |
+| Tema            | Estilo             | Colores                                      |
+| --------------- | ------------------ | -------------------------------------------- |
+| **brain**       | Default, dark-only | Cyan primary, violet secondary, rose accents |
+| **catppuccin**  | Macchiato / Latte  | Mauve primary, pink secondary                |
+| **tokyo-night** | Dark-only          | Blue primary, magenta secondary              |
+| **nord**        | Dark-only          | Frost blue, aurora green                     |
+| **rose-pine**   | Moon / Dawn        | Pine primary, gold secondary                 |
+| **kanagawa**    | Dark-only          | Wave blue, carp red                          |
 
 ### Brand Style (header)
 
-| Valor | Visual |
-|-------|--------|
-| `ascii-big` | ANSI Shadow 6 líneas (default) |
-| `ascii-slim` | Half-blocks 3 líneas |
-| `minimal` | `🧠 Brain CLI` |
-| `none` | Sin marca |
+| Valor        | Visual                         |
+| ------------ | ------------------------------ |
+| `ascii-big`  | ANSI Shadow 6 líneas (default) |
+| `ascii-slim` | Half-blocks 3 líneas           |
+| `minimal`    | `🧠 Brain CLI`                 |
+| `none`       | Sin marca                      |
 
 ---
 
@@ -218,11 +218,11 @@ Brain CLI como **drop-down terminal** al estilo Quake/Guake: `Super+B` abre cent
 
 ### Requisitos
 
-| Componente | Uso |
-|------------|-----|
-| Niri | Compositor Wayland |
-| Ghostty | Terminal con config dedicada |
-| `jq` | Parsear `niri msg --json` |
+| Componente | Uso                          |
+| ---------- | ---------------------------- |
+| Niri       | Compositor Wayland           |
+| Ghostty    | Terminal con config dedicada |
+| `jq`       | Parsear `niri msg --json`    |
 
 ```bash
 command -v niri ghostty jq
@@ -328,13 +328,13 @@ restore_focus "$FOCUS"
 
 ### Troubleshooting
 
-| Síntoma | Causa | Fix |
-|---------|-------|-----|
-| `niri validate` falla | `#` como comentario | KDL usa `//` o `/* */` |
-| No flotante | Título no matchea | `niri msg --json windows \| jq '.[].title'` |
-| No centrada | Niri recuerda tamaño | Redimensiona → cierra → reabre |
-| Tamaño no aplica | Niri guarda por ventana | Cambia título (`BrainCLIDropV2`) |
-| App roba foco | Default behavior | Usa `capture_focus`/`restore_focus` |
+| Síntoma               | Causa                   | Fix                                         |
+| --------------------- | ----------------------- | ------------------------------------------- |
+| `niri validate` falla | `#` como comentario     | KDL usa `//` o `/* */`                      |
+| No flotante           | Título no matchea       | `niri msg --json windows \| jq '.[].title'` |
+| No centrada           | Niri recuerda tamaño    | Redimensiona → cierra → reabre              |
+| Tamaño no aplica      | Niri guarda por ventana | Cambia título (`BrainCLIDropV2`)            |
+| App roba foco         | Default behavior        | Usa `capture_focus`/`restore_focus`         |
 
 ---
 
@@ -363,13 +363,13 @@ Clean Architecture con dependencias hacia el dominio.
 └─────────────────────────────────────────────────────┘
 ```
 
-| Paquete | Responsabilidad |
-|---------|----------------|
-| `core/` | Entidades, interfaces, reglas de negocio |
-| `usecases/` | Lógica de aplicación (CRUD, ejecución, IA) |
-| `adapters/` | Implementaciones (DB, executor, proveedores) |
-| `ui/` | TUI, pantallas, componentes, estilos, temas, iconos |
-| `pkg/utils/` | Logger, validador, formateador |
+| Paquete      | Responsabilidad                                     |
+| ------------ | --------------------------------------------------- |
+| `core/`      | Entidades, interfaces, reglas de negocio            |
+| `usecases/`  | Lógica de aplicación (CRUD, ejecución, IA)          |
+| `adapters/`  | Implementaciones (DB, executor, proveedores)        |
+| `ui/`        | TUI, pantallas, componentes, estilos, temas, iconos |
+| `pkg/utils/` | Logger, validador, formateador                      |
 
 ---
 
