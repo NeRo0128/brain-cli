@@ -342,6 +342,197 @@ brain-cli/
 
 ---
 
+## Widget flotante (Niri + Ghostty)
+
+Brain CLI puede ejecutarse como un **widget de escritorio desplegable** al estilo Quake/Guake. Se abre con un atajo de teclado, aparece centrado flotando sobre el escritorio, y se cierra desde la propia TUI.
+
+**Flujo:** `Super+B` → Brain CLI aparece → trabajas → `q` → se cierra → `Super+B` → se reabre.
+
+### Requisitos
+
+| Componente | Propósito |
+|------------|-----------|
+| **Niri** | Compositor Wayland (soporte flotante) |
+| **Ghostty** | Terminal con config dedicada |
+| **`jq`** | Parsear JSON de `niri msg` |
+
+```bash
+command -v niri ghostty jq  # verificar dependencias
+```
+
+### Ghostty: config dedicada
+
+Crea un archivo de configuración exclusivo para el widget. Esto evita que las opciones afecten a tus terminales normales.
+
+**`~/.config/ghostty/config-drop`**:
+
+```ini
+# Título único — Niri lo usa como identificador de ventana.
+title = BrainCLIDrop
+
+# Sin decoraciones de ventana (más limpio para flotante).
+window-decoration = false
+
+# Tamaño en celdas (103x32 ≈ 800x700 px con fuente por defecto).
+window-width = 103
+window-height = 32
+
+# Fondo 100% opaco para legibilidad.
+background-opacity = 1
+```
+
+> El título es la clave: Ghostty/GTK4 en Wayland ignora `--class` y `GDK_APP_ID`. El título sí se respeta y Niri puede matchearlo.
+
+### Niri: window-rule
+
+Añade esta regla a `~/.config/niri/config.kdl`:
+
+```kdl
+window-rule {
+    match title="BrainCLIDrop"
+    open-floating true
+    opacity 1.0
+    default-column-width { fixed 800; }
+    default-window-height { fixed 700; }
+}
+```
+
+| Campo | Descripción |
+|-------|-------------|
+| `match title=` | Matchea por título (no `app-id`, que Ghostty no respeta) |
+| `open-floating true` | Abre la ventana flotante |
+| `opacity 1.0` | Sobreescribe reglas globales de transparencia |
+| `default-column-width` | Ancho fijo en píxeles |
+| `default-window-height` | Alto fijo en píxeles |
+
+Valida y recarga:
+
+```bash
+niri validate
+niri msg action load-config-file
+```
+
+### Script de toggle
+
+Crea `~/.local/bin/tdrop-niri.sh`:
+
+```bash
+#!/bin/bash
+# tdrop-niri.sh — Drop-down toggle para Brain CLI en Niri.
+set -e
+
+DROP_TITLE="BrainCLIDrop"
+BRAIN_DIR="${BRAIN_DIR:-$HOME/brain-cli}"
+BRAIN_CLI="$BRAIN_DIR/build/brain-cli"
+GHOSTTY_CONFIG="${GHOSTTY_CONFIG:-$HOME/.config/ghostty/config-drop}"
+
+if [ ! -x "$BRAIN_CLI" ]; then
+    echo "brain-cli no encontrado en $BRAIN_CLI"
+    echo "Compila: cd $BRAIN_DIR && go build -o build/brain-cli ./cmd/brain-cli"
+    exit 1
+fi
+
+WINDOW_JSON=$(niri msg --json windows 2>/dev/null \
+    | jq -c --arg title "$DROP_TITLE" '.[] | select(.title == $title)')
+
+# No existe → lanzar
+if [ -z "$WINDOW_JSON" ]; then
+    niri msg action spawn -- \
+        ghostty \
+        --config-file="$GHOSTTY_CONFIG" \
+        -e bash -c "cd '$BRAIN_DIR' && exec '$BRAIN_CLI'"
+    exit 0
+fi
+
+# Existe → enfocar
+WIN_ID=$(echo "$WINDOW_JSON" | jq -r '.id')
+niri msg action focus-window --id "$WIN_ID"
+```
+
+```bash
+chmod +x ~/.local/bin/tdrop-niri.sh
+```
+
+### Atajo de teclado
+
+En `~/.config/niri/keybinds.kdl`:
+
+```kdl
+Mod+B { spawn-sh "/home/$USER/.local/bin/tdrop-niri.sh"; }
+```
+
+> Usa ruta absoluta — Niri no expande `~` dentro de `spawn-sh`.
+
+### Evitar que scripts roben el foco
+
+Si desde Brain CLI lanzas apps (editores, terminales, navegadores), puedes evitar que roben el foco. El truco: capturar el foco antes y restaurarlo después.
+
+**`~/.local/bin/lib/refocus.sh`**:
+
+```bash
+#!/bin/bash
+capture_focus() {
+    if command -v niri >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+        niri msg --json focused-window 2>/dev/null | jq -r '.id // empty'
+    fi
+}
+
+restore_focus() {
+    local win_id="$1"
+    if [ -n "$win_id" ]; then
+        sleep 1
+        niri msg action focus-window --id "$win_id" 2>/dev/null || true
+    fi
+}
+```
+
+Uso en cualquier script:
+
+```bash
+source ~/.local/bin/lib/refocus.sh
+FOCUS=$(capture_focus)
+
+setsid my-editor </dev/null >/dev/null 2>&1 &
+setsid my-terminal </dev/null >/dev/null 2>&1 &
+
+restore_focus "$FOCUS"
+```
+
+`setsid` crea una nueva sesión que sobrevive al padre, evitando que los hijos reciban `SIGHUP` al terminar el script.
+
+### Ejemplo: entorno dev sin perder foco
+
+**`scripts/open-dev.sh`**:
+
+```bash
+#!/bin/bash
+set -e
+WORK_DIR="${1:-$PWD}"
+
+source ~/.local/bin/lib/refocus.sh
+FOCUS=$(capture_focus)
+
+setsid zed "$WORK_DIR" </dev/null >/dev/null 2>&1 &
+setsid ghostty --working-directory="$WORK_DIR" </dev/null >/dev/null 2>&1 &
+
+restore_focus "$FOCUS"
+echo "Entorno lanzado en $WORK_DIR"
+```
+
+Regístralo como Tool en Brain CLI (`n` → tipo bash), crea una Task que lo use. Al ejecutarlo desde la TUI: Zed + Ghostty se abren, Brain CLI mantiene el foco, `q` cierra la TUI y Zed queda listo.
+
+### Troubleshooting
+
+| Síntoma | Causa | Fix |
+|---------|-------|-----|
+| `niri validate` falla | Usaste `#` como comentario | KDL solo acepta `//` o `/* */` |
+| Ventana no es flotante | El título no matchea | `niri msg --json windows \| jq '.[].title'` para ver títulos reales |
+| Ventana no se centra | Niri recuerda último tamaño | Redimensiónala, ciérrala, reábrela |
+| Tamaño del config no se aplica | Niri guarda tamaño por ventana | Cambia el título (`BrainCLIDropV2`) y matchea el nuevo |
+| App lanzada roba el foco | Comportamiento por defecto | Usa `capture_focus` / `restore_focus` |
+
+---
+
 ## Contribuir
 
 1. Fork el repositorio
