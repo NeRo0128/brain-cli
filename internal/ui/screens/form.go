@@ -32,17 +32,17 @@ type toolLoadedForFormMsg struct {
 type fieldID string
 
 const (
-	fID          fieldID = "id"
-	fName        fieldID = "name"
-	fDesc        fieldID = "desc"
-	fKind        fieldID = "kind"        // reemplaza fType
-	fInterpreter fieldID = "interpreter" // solo si kind=script
-	fTool        fieldID = "tool"        // solo si kind=script
-	fCommand     fieldID = "command"     // solo si kind=command
-	fPrompt      fieldID = "prompt"      // solo si kind=ai
-	fPriority    fieldID = "priority"
-	fActive      fieldID = "active"
-	fFavorite    fieldID = "favorite"
+	fID            fieldID = "id"
+	fName          fieldID = "name"
+	fDesc          fieldID = "desc"
+	fKind          fieldID = "kind"
+	fInterpreter   fieldID = "interpreter"
+	fScriptContent fieldID = "script_content"
+	fCommand       fieldID = "command"
+	fPrompt        fieldID = "prompt"
+	fPriority      fieldID = "priority"
+	fActive        fieldID = "active"
+	fFavorite      fieldID = "favorite"
 )
 
 type fieldKind int
@@ -56,7 +56,7 @@ const (
 
 var fieldOrder = []fieldID{
 	fID, fName, fDesc,
-	fKind, fInterpreter, fTool, fCommand, fPrompt,
+	fKind, fInterpreter, fScriptContent, fCommand, fPrompt,
 	fPriority, fActive, fFavorite,
 }
 
@@ -67,12 +67,13 @@ type FormScreen struct {
 	idInput      textinput.Model
 	nameInput    textinput.Model
 	descInput    textinput.Model
-	commandInput textinput.Model //
-	promptInput  textarea.Model  // [S4a] prompt IA con múltiples líneas
+	commandInput textinput.Model
+	promptInput  textarea.Model
+	scriptInput  textarea.Model
 
-	kind           coretask.TaskKind  //
-	interpreters   []tool.Interpreter // solo disponibles
-	interpreterIdx int                //
+	kind           coretask.TaskKind
+	interpreters   []tool.Interpreter
+	interpreterIdx int
 	selectedTool   *tool.Tool
 	priority       coretask.Priority
 	isActive       bool
@@ -126,13 +127,13 @@ func NewFormScreen(
 	f.commandInput = newInput("docker ps -a", 80)
 
 	// [S4a] Textarea para el prompt IA: bloque multi-línea
-	ta := textarea.New()
-	ta.Placeholder = "Prompt para la IA..."
-	ta.SetWidth(60)
-	ta.SetHeight(5)
-	ta.ShowLineNumbers = false
-	ta.CharLimit = 8192
-	ta.SetStyles(textarea.Styles{
+	promtAITextArea := textarea.New()
+	promtAITextArea.Placeholder = "Prompt para la IA..."
+	promtAITextArea.SetWidth(60)
+	promtAITextArea.SetHeight(5)
+	promtAITextArea.ShowLineNumbers = false
+	promtAITextArea.CharLimit = 8192
+	promtAITextArea.SetStyles(textarea.Styles{
 		Focused: textarea.StyleState{
 			Base:       lipgloss.NewStyle(),
 			CursorLine: lipgloss.NewStyle(),
@@ -142,8 +143,25 @@ func NewFormScreen(
 			CursorLine: lipgloss.NewStyle(),
 		},
 	})
-	f.promptInput = ta
-
+	f.promptInput = promtAITextArea
+	// Textarea para el script inline.
+	scriptTextArea := textarea.New()
+	scriptTextArea.Placeholder = "#!/bin/bash\nset -e\n..."
+	scriptTextArea.SetWidth(70)
+	scriptTextArea.SetHeight(8)
+	scriptTextArea.ShowLineNumbers = false
+	scriptTextArea.CharLimit = 16384
+	scriptTextArea.SetStyles(textarea.Styles{
+		Focused: textarea.StyleState{
+			Base:       lipgloss.NewStyle(),
+			CursorLine: lipgloss.NewStyle(),
+		},
+		Blurred: textarea.StyleState{
+			Base:       lipgloss.NewStyle(),
+			CursorLine: lipgloss.NewStyle(),
+		},
+	})
+	f.scriptInput = scriptTextArea
 	if tk != nil {
 		f.idInput.SetValue(tk.ID)
 		f.nameInput.SetValue(tk.Name)
@@ -201,6 +219,7 @@ func (m FormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.resizeInputs(msg.Width)
+		m.resizeHeights(msg.Height)
 		return m, nil
 
 	case saveDoneMsg:
@@ -217,6 +236,9 @@ func (m FormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 		if msg.err == nil {
 			m.selectedTool = msg.tool
 			m.syncInterpreterToTool()
+			if msg.tool.ScriptType != tool.ScriptTypeNative {
+				m.scriptInput.SetValue(msg.tool.ScriptContent)
+			}
 		}
 		return m, nil
 
@@ -245,7 +267,7 @@ func (m FormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 }
 
 func (m *FormScreen) resizeInputs(termWidth int) {
-	if termWidth >= TwoColMinWidth {
+	if termWidth >= twoColMinWidth {
 		totalW := termWidth - 2
 		gap := 4
 		colW := max((totalW-gap)/2, 50)
@@ -256,6 +278,7 @@ func (m *FormScreen) resizeInputs(termWidth int) {
 		m.commandInput.SetWidth(colW)
 
 		taW := max(colW-4, 20)
+		m.scriptInput.SetWidth(taW)
 		m.promptInput.SetWidth(taW)
 		return
 	}
@@ -297,34 +320,24 @@ func (m FormScreen) handleKey(msg tea.KeyPressMsg) (ScreenI, tea.Cmd) {
 	case "tab":
 		m.focus = (m.focus + 1) % len(fields)
 		m.applyFocus()
-		m.scrollToFocus() // [NUEVO]
+		m.scrollToFocus()
 		return m, nil
 	case "shift+tab":
 		m.focus = (m.focus - 1 + len(fields)) % len(fields)
 		m.applyFocus()
-		m.scrollToFocus() // [NUEVO]
+		m.scrollToFocus()
 		return m, nil
-	case "enter":
-		// Enter en fTool abre el picker filtrado
-		if m.currentField() == fTool {
-			var current *int
-			if m.selectedTool != nil {
-				current = &m.selectedTool.ID
-			}
-			return m, OpenToolPicker(current, m.currentScriptType(), m.styles)
-		}
 	case "left":
-		switch m.currentKind() {
-		case kindSelect:
+		if m.currentKind() == kindSelect {
 			m.cycleSelect(-1)
 			return m, nil
 		}
 	case "right":
-		switch m.currentKind() {
-		case kindSelect:
+		if m.currentKind() == kindSelect {
 			m.cycleSelect(+1)
 			return m, nil
 		}
+
 	case "space":
 		if m.currentKind() == kindToggle {
 			m.toggleCurrent()
@@ -351,6 +364,8 @@ func (m FormScreen) delegateToInput(msg tea.Msg) (ScreenI, tea.Cmd) {
 		m.commandInput, cmd = m.commandInput.Update(msg)
 	case fPrompt:
 		m.promptInput, cmd = m.promptInput.Update(msg)
+	case fScriptContent:
+		m.scriptInput, cmd = m.scriptInput.Update(msg)
 	}
 	return m, cmd
 }
@@ -359,7 +374,7 @@ func (m FormScreen) delegateToInput(msg tea.Msg) (ScreenI, tea.Cmd) {
 func (m FormScreen) View() tea.View {
 
 	var b strings.Builder
-	m.scrollToFocus() // ERROR no funcioina aun
+	m.scrollToFocus() // WARN no se adapta bien a la ventana pequeña
 	// En modo edición, mostramos el ID como referencia (no editable).
 	if m.editing != nil {
 		b.WriteString("  ")
@@ -368,7 +383,7 @@ func (m FormScreen) View() tea.View {
 		b.WriteString("\n\n")
 	}
 
-	if m.width >= TwoColMinWidth {
+	if m.width >= twoColMinWidth {
 		b.WriteString(m.renderTwoColumn())
 	} else {
 		m.scrollToFocus()
@@ -423,6 +438,25 @@ func (m FormScreen) renderField(id fieldID, focused bool) string {
 			box.Render(m.promptInput.View()) + "\n\n"
 	}
 
+	// Textarea del script (kind=script): bloque multi-línea.
+	if id == fScriptContent {
+		p := m.styles.Theme.Resolve(m.styles.Dark)
+		borderColor := p.InputBlurred
+		if focused {
+			borderColor = p.InputFocused
+		}
+
+		innerW := max(m.scriptInput.Width(), 40)
+		box := lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder()).
+			BorderForeground(borderColor).
+			Padding(0, 1).
+			Width(innerW)
+
+		return cursor + labelStyle.Render(label) + "\n" +
+			box.Render(m.scriptInput.View()) + "\n\n"
+	}
+
 	var value string
 	switch id {
 	case fID:
@@ -445,8 +479,6 @@ func (m FormScreen) renderField(id fieldID, focused bool) string {
 		value = renderToggle(m.isActive, focused, m.styles)
 	case fFavorite:
 		value = renderToggle(m.isFav, focused, m.styles)
-	case fTool:
-		value = m.renderToolField(focused)
 	}
 
 	return cursor + labelStyle.Render(label) + "\n   " + value + "\n\n"
@@ -464,20 +496,6 @@ func (m FormScreen) renderInterpreterField(focused bool) string {
 	return m.styles.Subtitle.Render("  " + m.interpreters[m.interpreterIdx].Display + "  ")
 }
 
-func (m FormScreen) renderToolField(focused bool) string {
-	if m.selectedTool == nil {
-		if focused {
-			return m.styles.Key.Render("[ Elegir tool... ]")
-		}
-		return m.styles.Subtitle.Render("[ Elegir tool... ]")
-	}
-	txt := "[" + m.selectedTool.Name + "]"
-	if focused {
-		return m.styles.Key.Render(txt)
-	}
-	return m.styles.Subtitle.Render(txt)
-}
-
 func (m FormScreen) labelFor(id fieldID) string {
 	switch id {
 	case fID:
@@ -490,7 +508,7 @@ func (m FormScreen) labelFor(id fieldID) string {
 		return "¿Qué quieres hacer?"
 	case fInterpreter:
 		return "Intérprete"
-	case fTool:
+	case fScriptContent:
 		return "Script"
 	case fCommand:
 		return "Comando"
@@ -540,7 +558,7 @@ func (m FormScreen) fieldVisible(id fieldID) bool {
 		return false
 	}
 	switch id {
-	case fInterpreter, fTool:
+	case fInterpreter, fScriptContent:
 		return m.kind == coretask.KindScript
 	case fCommand:
 		return m.kind == coretask.KindCommand
@@ -564,8 +582,6 @@ func (m FormScreen) currentKind() fieldKind {
 		return kindSelect
 	case fActive, fFavorite:
 		return kindToggle
-	case fTool:
-		return kindButton
 	default:
 		return kindText
 	}
@@ -585,6 +601,7 @@ func (m *FormScreen) applyFocus() {
 	m.descInput.Blur()
 	m.commandInput.Blur()
 	m.promptInput.Blur()
+	m.scriptInput.Blur()
 
 	switch m.currentField() {
 	case fID:
@@ -597,6 +614,8 @@ func (m *FormScreen) applyFocus() {
 		m.commandInput.Focus()
 	case fPrompt:
 		m.promptInput.Focus()
+	case fScriptContent:
+		m.scriptInput.Focus()
 	}
 }
 
@@ -686,7 +705,7 @@ func (m FormScreen) save() (ScreenI, tea.Cmd) {
 	}
 }
 
-// [REESCRITO] buildInput usa Kind → Type + Tool + Command/AIPrompt
+// buildInput usa Kind → Type + Tool + Command/AIPrompt
 func (m FormScreen) buildInput() taskuc.TaskInput {
 	in := taskuc.TaskInput{
 		ID:          strings.TrimSpace(m.idInput.Value()),
@@ -703,9 +722,8 @@ func (m FormScreen) buildInput() taskuc.TaskInput {
 
 	switch m.kind {
 	case coretask.KindScript:
-		if m.selectedTool != nil {
-			in.ToolID = &m.selectedTool.ID
-		}
+		in.ScriptContent = m.scriptInput.Value()
+		in.ScriptType = m.currentScriptType()
 	case coretask.KindCommand:
 		in.Command = strings.TrimSpace(m.commandInput.Value())
 		if m.selectedTool != nil {
@@ -743,15 +761,12 @@ type errNoInterpretersT string
 
 func (e errNoInterpretersT) Error() string { return string(e) }
 
-// [S4c] Section dividers: agrupan campos en IDENTIDAD / ACCIÓN / METADATOS.
-
 // sectionFor devuelve el nombre de la sección a la que pertenece un campo.
-// "" significa "sin sección".
 func sectionFor(id fieldID) string {
 	switch id {
 	case fID, fName, fDesc:
 		return "Identidad"
-	case fKind, fInterpreter, fTool, fCommand, fPrompt:
+	case fKind, fInterpreter, fScriptContent, fCommand, fPrompt:
 		return "Acción"
 	case fPriority, fActive, fFavorite:
 		return "Metadatos"
@@ -787,16 +802,13 @@ func cleanSaveError(err error) string {
 // campo enfocado, y ajusta el offset para que esté dentro del viewport.
 func (m *FormScreen) scrollToFocus() {
 	// En 2-col no hay scroll: el form cabe.
-	if m.width >= TwoColMinWidth {
+	if m.width >= twoColMinWidth {
 		return
 	}
 	if m.height <= 0 {
 		return
 	}
-	availableH := m.height - 8
-	if availableH < 5 {
-		availableH = 5
-	}
+	availableH := max(m.height-8, 5)
 
 	lines := strings.Split(m.renderAllFields(), "\n")
 
@@ -859,19 +871,10 @@ func (m FormScreen) renderAllFields() string {
 
 // renderStacked: 1 columna con scroll (comportamiento actual).
 func (m FormScreen) renderStacked() string {
-	availableH := m.height - 8
-	if availableH < 5 {
-		availableH = 5
-	}
+	availableH := max(m.height-8, 5)
 	lines := strings.Split(m.renderAllFields(), "\n")
-	start := m.scroll
-	if start > len(lines) {
-		start = len(lines)
-	}
-	end := start + availableH
-	if end > len(lines) {
-		end = len(lines)
-	}
+	start := min(m.scroll, len(lines))
+	end := min(start+availableH, len(lines))
 
 	var b strings.Builder
 	b.WriteString(strings.Join(lines[start:end], "\n"))
@@ -933,4 +936,15 @@ func (m FormScreen) renderSection(section string) string {
 		b.WriteString(m.renderField(id, m.currentField() == id))
 	}
 	return b.String()
+}
+
+func (m *FormScreen) resizeHeights(termHeight int) {
+	if termHeight <= 0 {
+		return
+	}
+
+	available := min(max(termHeight-25, 8), 20)
+
+	m.scriptInput.SetHeight(available)
+	m.promptInput.SetHeight(available)
 }
