@@ -1,11 +1,11 @@
 package screens
 
 import (
+	tea "charm.land/bubbletea/v2"
 	"github.com/NeRo0128/brain-cli/internal/core/execution"
 	coretask "github.com/NeRo0128/brain-cli/internal/core/task"
 	"github.com/NeRo0128/brain-cli/internal/core/tool"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
-	tea "charm.land/bubbletea/v2"
 )
 
 type ActionMsg struct{ ID string }

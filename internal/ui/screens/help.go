@@ -10,8 +10,6 @@ import (
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
 
-const helpTwoColMinWidth = 100
-
 type HelpScreen struct {
 	km     keys.KeyMap
 	width  int

@@ -96,10 +96,7 @@ func (m ConfirmScreen) View() tea.View {
 		Render(content.String())
 
 	if m.width > 0 && m.height > 0 {
-		h := m.height - 4
-		if h < 10 {
-			h = 10
-		}
+		h := max(m.height-4, 10)
 		return tea.NewView(lipgloss.Place(m.width, h, lipgloss.Center, lipgloss.Center, box))
 	}
 	return tea.NewView("\n" + box + "\n")

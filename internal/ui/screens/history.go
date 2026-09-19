@@ -4,14 +4,14 @@ import (
 	"context"
 	"time"
 
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
 	"github.com/NeRo0128/brain-cli/internal/core/execution"
 	coretask "github.com/NeRo0128/brain-cli/internal/core/task"
 	uilist "github.com/NeRo0128/brain-cli/internal/ui/components/list"
 	"github.com/NeRo0128/brain-cli/internal/ui/components/states"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
-	"charm.land/bubbles/v2/list"
-	tea "charm.land/bubbletea/v2"
 )
 
 type historyLoadedMsg struct {
@@ -43,7 +43,11 @@ type HistoryScreen struct {
 	styles *styles.Styles
 }
 
-func NewHistoryScreen(execRepo execution.Repository, taskRepo coretask.Repository, s *styles.Styles) HistoryScreen {
+func NewHistoryScreen(
+	execRepo execution.Repository,
+	taskRepo coretask.Repository,
+	s *styles.Styles,
+) HistoryScreen {
 	l := list.New(nil, uilist.New(s), 80, 20)
 	l.Title = "Historial"
 	l.SetShowStatusBar(false)

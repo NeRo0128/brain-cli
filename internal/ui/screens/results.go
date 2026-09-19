@@ -81,7 +81,9 @@ func (m ResultScreen) View() tea.View {
 		" · exit " + formatExitCode(m.exec.ExitCode)
 
 	var b strings.Builder
-	b.WriteString("  " + status + m.styles.Subtitle.Render(meta))
+	b.WriteString("  ")
+	b.WriteString(status)
+	b.WriteString(m.styles.Subtitle.Render(meta))
 	b.WriteString("\n\n")
 	b.WriteString(m.viewport.View())
 	return tea.NewView(b.String())
