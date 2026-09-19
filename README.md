@@ -1,18 +1,10 @@
 <p align="center">
-  <pre style="font-size: 11px; line-height: 1.1; margin: 0;">
-██████╗ ██████╗  █████╗ ██╗███╗   ██╗    ██████╗██╗     ██╗
-██╔══██╗██╔══██╗██╔══██╗██║████╗  ██║   ██╔════╝██║     ██║
-██████╔╝██████╔╝███████║██║██╔██╗ ██║   ██║     ██║     ██║
-██╔══██╗██╔══██╗██╔══██║██║██║╚██╗██║── ██║     ██║     ██║
-██████╔╝██║  ██║██║  ██║██║██║ ╚████║   ╚██████╗███████╗██║
-╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝    ╚═════╝╚══════╝╚═╝
-  </pre>
+  <img src="assets/banner.svg" alt="Brain CLI" width="800">
 </p>
 
 <p align="center">
   <strong>Asistente personal de terminal con IA y automatización de sistemas</strong>
 </p>
-
 <p align="center">
   <a href="https://github.com/NeRo0128/brain-cli/actions"><img src="https://img.shields.io/github/actions/workflow/status/NeRo0128/brain-cli/ci.yml?branch=main&style=flat-square" alt="CI"></a>
   <a href="https://goreportcard.com/report/github.com/NeRo0128/brain-cli"><img src="https://goreportcard.com/badge/github.com/NeRo0128/brain-cli?style=flat-square" alt="Go Report Card"></a>
