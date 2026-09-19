@@ -166,7 +166,7 @@ func (m DetailScreen) View() tea.View {
 }
 
 func (m DetailScreen) renderContent() string {
-	if m.viewport.Width() >= TwoColMinWidth {
+	if m.viewport.Width() >= twoColMinWidth {
 		return m.renderTwoColumn()
 	}
 	return m.renderStacked()
@@ -247,7 +247,9 @@ func (m DetailScreen) renderTagsSection() string {
 	b.WriteString(m.styles.SectionHeader.Render("TAGS"))
 	b.WriteString("\n")
 	for _, tg := range m.task.Tags {
-		b.WriteString("  " + m.styles.ColoredIcons.Bullet() + " ")
+		b.WriteString("  ")
+		b.WriteString(m.styles.ColoredIcons.Bullet())
+		b.WriteString(" ")
 		b.WriteString(tg)
 		b.WriteString("\n")
 	}
@@ -271,11 +273,18 @@ func (m DetailScreen) renderToolSection() string {
 
 	switch {
 	case m.loading:
-		b.WriteString("  " + m.styles.Subtitle.Render("Cargando...") + "\n")
+		b.WriteString("  ")
+		b.WriteString(m.styles.Subtitle.Render("Cargando..."))
+		b.WriteString("\n")
 	case m.toolErr != nil:
-		b.WriteString("  " + m.styles.ErrorStyle.Render("Error: ") + m.toolErr.Error() + "\n")
+		b.WriteString("  ")
+		b.WriteString(m.styles.ErrorStyle.Render("Error: "))
+		b.WriteString(m.toolErr.Error())
+		b.WriteString("\n")
 	case m.tool == nil:
-		b.WriteString("  " + m.styles.Subtitle.Render("(sin tool asociado)") + "\n")
+		b.WriteString("  ")
+		b.WriteString(m.styles.Subtitle.Render("(sin tool asociado)"))
+		b.WriteString("\n")
 	default:
 		writeKV(&b, m.styles, "Nombre", m.tool.Name)
 		writeKV(&b, m.styles, "Tipo", string(m.tool.ScriptType))
@@ -296,29 +305,65 @@ func (m DetailScreen) renderToolSection() string {
 func (m DetailScreen) renderPromptSection(contentW int) string {
 	p := m.styles.Theme.Resolve(m.styles.Dark)
 
-	wrapped := wrap.String(m.task.AIPrompt, contentW)
+	lines := strings.Split(m.task.AIPrompt, "\n")
+	total := len(lines)
+	truncated := false
+	if total > maxTextAreaPreviewLines {
+		lines = lines[:maxTextAreaPreviewLines]
+		truncated = true
+	}
+
+	wrapped := wrap.String(strings.Join(lines, "\n"), contentW)
 
 	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(p.Border).
-		Padding(0, 1).Width(contentW)
+		Padding(0, 1).
+		Width(contentW)
 
-	return m.styles.SectionHeader.Render("PROMPT IA") + "\n" +
+	out := m.styles.SectionHeader.Render("PROMPT IA") + "\n" +
 		box.Render(wrapped) + "\n"
+
+	if truncated {
+		missing := total - maxTextAreaPreviewLines
+		out += m.styles.Subtitle.Render(
+			fmt.Sprintf("  … (+%d líneas, pulsa e para ver completo)", missing),
+		) + "\n"
+	}
+	return out
 }
 
 func (m DetailScreen) renderScriptSection(contentW int) string {
 	p := m.styles.Theme.Resolve(m.styles.Dark)
 
-	wrapped := wrap.String(m.tool.ScriptContent, contentW)
+	// Truncar a N líneas.
+	lines := strings.Split(m.tool.ScriptContent, "\n")
+	total := len(lines)
+	truncated := false
+	if total > maxTextAreaPreviewLines {
+		lines = lines[:maxTextAreaPreviewLines]
+		truncated = true
+	}
+
+	body := strings.Join(lines, "\n")
+	wrapped := wrap.String(body, contentW)
 
 	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(p.Border).
-		Padding(0, 1).Width(contentW)
+		Padding(0, 1).
+		Width(contentW)
 
-	return m.styles.SectionHeader.Render("CONTENIDO DEL SCRIPT") + "\n" +
+	out := m.styles.SectionHeader.Render("CONTENIDO DEL SCRIPT") + "\n" +
 		box.Render(wrapped) + "\n"
+
+	if truncated {
+		missing := total - maxTextAreaPreviewLines
+		out += m.styles.Subtitle.Render(
+			fmt.Sprintf("  … (+%d líneas, pulsa e para ver completo)", missing),
+		) + "\n"
+	}
+	return out
 }
 func writeKV(b *strings.Builder, s *styles.Styles, key, value string) {
 	b.WriteString("  ")
@@ -326,13 +371,6 @@ func writeKV(b *strings.Builder, s *styles.Styles, key, value string) {
 	b.WriteString(" ")
 	b.WriteString(value)
 	b.WriteString("\n")
-}
-
-func boolYesNo(v bool) string {
-	if v {
-		return "sí"
-	}
-	return "no"
 }
 
 // reload re-fetchea la task y su tool desde los repositorios.
