@@ -60,4 +60,5 @@ data/*.db-shm
 data/*.db-wal
 
 # Local working notes (no commitear)
-docs/algo.md
+docs/
+scripts/
