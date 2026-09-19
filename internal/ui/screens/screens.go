@@ -1,6 +1,8 @@
 package screens
 
-import tea "charm.land/bubbletea/v2"
+import (
+	tea "charm.land/bubbletea/v2"
+)
 
 // ScreenI es una pantalla navegable de la TUI.
 //
@@ -21,4 +23,18 @@ type ScreenI interface {
 	// WantsTextInput() bool
 }
 
-const TwoColMinWidth = 120
+const twoColMinWidth = 120
+
+// maxTextAreaPreviewLines limita cuántas líneas del script se muestran
+// en el detalle. Si el script tiene más, se añade un indicador.
+// El usuario puede editarlo con `e` para ver el contenido completo.
+const maxTextAreaPreviewLines = 25
+
+const helpTwoColMinWidth = 100
+
+func boolYesNo(v bool) string {
+	if v {
+		return "sí"
+	}
+	return "no"
+}
