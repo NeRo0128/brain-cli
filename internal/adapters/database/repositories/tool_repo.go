@@ -145,15 +145,12 @@ func (r *ToolRepository) Update(ctx context.Context, t *tool.Tool) error {
 	return nil
 }
 
-// Delete hace soft-delete (UPDATE deleted_at = now).
 func (r *ToolRepository) Delete(ctx context.Context, id int) error {
-	now := time.Now().UTC()
-	const q = "UPDATE tools SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL"
-	res, err := r.db.ExecContext(ctx, q, now, now, id)
+	const q = "DELETE FROM tools WHERE id = ?"
+	res, err := r.db.ExecContext(ctx, q, id)
 	if err != nil {
-		return fmt.Errorf("soft-deleting tool %d: %w", id, err)
+		return fmt.Errorf("deleting tool %d: %w", id, err)
 	}
-
 	n, err := res.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("rows affected: %w", err)

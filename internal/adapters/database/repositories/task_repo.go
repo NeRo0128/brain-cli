@@ -174,13 +174,16 @@ func (r *TaskRepository) Update(ctx context.Context, t *task.Task) error {
 	return tx.Commit()
 }
 
-// Delete hace soft-delete. No toca task_tags (se preservan para auditoría).
+// Delete elimina la task PERMANENTEMENTE.
+//
+// Los registros relacionados (executions, task_tags) se borran
+// automáticamente por ON DELETE CASCADE. El ID queda libre para
+// reutilizarse.
 func (r *TaskRepository) Delete(ctx context.Context, id string) error {
-	now := time.Now().UTC()
-	const q = "UPDATE tasks SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL"
-	res, err := r.db.ExecContext(ctx, q, now, now, id)
+	const q = "DELETE FROM tasks WHERE id = ?"
+	res, err := r.db.ExecContext(ctx, q, id)
 	if err != nil {
-		return fmt.Errorf("soft-deleting task %q: %w", id, err)
+		return fmt.Errorf("deleting task %q: %w", id, err)
 	}
 	n, err := res.RowsAffected()
 	if err != nil {
