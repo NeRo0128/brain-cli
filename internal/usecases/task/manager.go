@@ -35,13 +35,17 @@ type TaskInput struct {
 	Type        task.TaskType
 	Command     string
 	ToolID      *int
-	Params      map[string]string
-	RequiresAI  bool
-	AIPrompt    string
-	Tags        []string
-	Priority    task.Priority
-	IsActive    bool
-	IsFavorite  bool
+
+	ScriptContent string
+	ScriptType    tool.ScriptType
+
+	Params     map[string]string
+	RequiresAI bool
+	AIPrompt   string
+	Tags       []string
+	Priority   task.Priority
+	IsActive   bool
+	IsFavorite bool
 }
 
 // Create valida y persiste una nueva Task.
@@ -76,11 +80,17 @@ func (m *Manager) Update(ctx context.Context, in TaskInput) (*task.Task, error) 
 	return tk, nil
 }
 
-// Delete hace soft-delete de una Task por ID.
 func (m *Manager) Delete(ctx context.Context, id string) error {
 	if id == "" {
 		return ErrTaskIDRequired
 	}
+
+	// Borrar el tool inline asociado (si existe).
+	inlineName := "inline-" + id
+	if tl, err := m.tools.GetByName(ctx, inlineName); err == nil {
+		_ = m.tools.Delete(ctx, tl.ID) // best-effort
+	}
+
 	if err := m.tasks.Delete(ctx, id); err != nil {
 		return fmt.Errorf("borrando task %q: %w", id, err)
 	}
@@ -141,18 +151,86 @@ func (m *Manager) validate(ctx context.Context, in TaskInput) (*task.Task, error
 	return tk, nil
 }
 
+// resolveTool decide qué tool asociar a la task según su tipo.
+//
+//   - script con ScriptContent: crea/actualiza un tool inline automático.
+//   - command con Command: crea/reutiliza un tool native (ya existente).
+//   - ToolID ya seteado: se respeta (modo avanzado, editando task existente).
 func (m *Manager) resolveTool(ctx context.Context, in TaskInput) (TaskInput, error) {
-	if in.Type != task.TaskTypeCommand {
-		return in, nil
-	}
+	// Modo avanzado: ya tiene ToolID explícito, no auto-crear.
 	if in.ToolID != nil && *in.ToolID > 0 {
 		return in, nil
 	}
-	cmd := strings.TrimSpace(in.Command)
-	if cmd == "" {
-		return in, nil // la validación fallará después con mensaje claro
+
+	switch in.Type {
+	case task.TaskTypeScript:
+		return m.resolveInlineScript(ctx, in)
+
+	case task.TaskTypeCommand:
+		return m.resolveCommand(ctx, in)
 	}
 
+	return in, nil
+}
+
+// resolveInlineScript crea o actualiza el tool asociado a un script inline.
+// El nombre del tool es determinista: "inline-{task-id}", así al editar
+// la misma task se actualiza el mismo tool.
+func (m *Manager) resolveInlineScript(ctx context.Context, in TaskInput) (TaskInput, error) {
+	if in.ScriptContent == "" {
+		// Sin contenido: la validación fallará después con mensaje claro.
+		return in, nil
+	}
+
+	name := "inline-" + in.ID
+	st := in.ScriptType
+	if st == "" {
+		st = tool.ScriptTypeBash // default
+	}
+
+	// ¿Existe ya un tool inline para esta task?
+	existing, err := m.tools.GetByName(ctx, name)
+	if err == nil {
+		// Actualizar el existente.
+		existing.ScriptContent = in.ScriptContent
+		existing.ScriptType = st
+		if err := m.tools.Update(ctx, existing); err != nil {
+			return in, fmt.Errorf("actualizando tool inline: %w", err)
+		}
+		in.ToolID = &existing.ID
+		return in, nil
+	}
+	if !errors.Is(err, tool.ErrNotFound) {
+		return in, fmt.Errorf("buscando tool inline: %w", err)
+	}
+
+	// No existe: crear.
+	tl := &tool.Tool{
+		Name:           name,
+		Description:    "Script inline de la task " + in.ID,
+		ScriptType:     st,
+		Category:       tool.CategoryCustom,
+		ScriptContent:  in.ScriptContent,
+		TimeoutSeconds: 300,
+		IsBuiltin:      false,
+		Version:        1,
+	}
+	if err := tl.Validate(); err != nil {
+		return in, fmt.Errorf("validando tool inline: %w", err)
+	}
+	if err := m.tools.Create(ctx, tl); err != nil {
+		return in, fmt.Errorf("creando tool inline: %w", err)
+	}
+	in.ToolID = &tl.ID
+	return in, nil
+}
+
+// resolveCommand extrae la lógica vieja del command a su propia función.
+func (m *Manager) resolveCommand(ctx context.Context, in TaskInput) (TaskInput, error) {
+	cmd := strings.TrimSpace(in.Command)
+	if cmd == "" {
+		return in, nil
+	}
 	tl, err := m.findOrCreateCommandTool(ctx, cmd)
 	if err != nil {
 		return in, err
@@ -160,7 +238,6 @@ func (m *Manager) resolveTool(ctx context.Context, in TaskInput) (TaskInput, err
 	in.ToolID = &tl.ID
 	return in, nil
 }
-
 func (m *Manager) findOrCreateCommandTool(ctx context.Context, command string) (*tool.Tool, error) {
 	existing, err := m.tools.List(ctx)
 	if err != nil {
