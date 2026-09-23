@@ -11,6 +11,7 @@ import (
 	"github.com/NeRo0128/brain-cli/internal/adapters/database"
 	"github.com/NeRo0128/brain-cli/internal/adapters/database/repositories"
 	"github.com/NeRo0128/brain-cli/internal/adapters/executor"
+	"github.com/NeRo0128/brain-cli/internal/core/paths"
 	"github.com/NeRo0128/brain-cli/internal/core/settings"
 	"github.com/NeRo0128/brain-cli/internal/core/tool"
 	"github.com/NeRo0128/brain-cli/internal/ui"
@@ -42,17 +43,44 @@ func min(a, b int) int {
 // configPath se puede sobreescribir con BRAIN_CONFIG.
 const defaultConfigPath = "configs/config.yaml"
 
+func resolveConfigPath() string {
+	if p := os.Getenv("BRAIN_CONFIG"); p != "" {
+		return p
+	}
+	if paths.DevMode() {
+		return "configs/config.yaml"
+	}
+	return paths.ConfigFile()
+}
+
 func main() {
 
+	// * Paths
+	if err := paths.EnsureDirs(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creando directorios XDG: %v\n", err)
+		os.Exit(1)
+	}
+
 	// * Config
-	configPath := os.Getenv("BRAIN_CONFIG")
-	if configPath == "" {
-		configPath = defaultConfigPath
+	configPath := resolveConfigPath()
+
+	if !paths.DevMode() && os.Getenv("BRAIN_DB_PATH") == "" {
+		_ = os.Setenv("BRAIN_DB_PATH", paths.DBFile())
+	}
+
+	defaultDB := "data/brain.db"
+	if !paths.DevMode() {
+		defaultDB = paths.DBFile()
+	}
+
+	if err := config.EnsureConfig(configPath, defaultDB); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creando config: %v\n", err)
+		os.Exit(1)
 	}
 
 	cfg, err := config.NewYAMLLoader().Load(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error cargando configuración: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error cargando config: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -94,7 +122,7 @@ func main() {
 	toolRepo := repositories.NewToolRepository(db.DB())
 	execRepo := repositories.NewExecutionRepository(db.DB())
 
-	// * Use case: la factory de executors se inyecta como función.
+	// * Use cases
 	executorUC := taskEsxec.NewExecutor(taskRepo, toolRepo, execRepo, executor.New)
 	managerUC := taskEsxec.NewManager(taskRepo, toolRepo)
 	toolManagerUC := tooluc.NewManager(toolRepo)
@@ -103,9 +131,7 @@ func main() {
 		log.Warn().Msg("no hay intérpretes disponibles; el tipo 'script' estará deshabilitado")
 	}
 
-	// ─── Settings ─────────────────────────────────────────────
-	// Cargamos overrides de la DB y los fusionamos con el YAML.
-
+	// * Settings
 	settingsRepo := repositories.NewSettingsRepository(db.DB())
 
 	schema := settings.NewSchema([]settings.Field{
@@ -124,18 +150,18 @@ func main() {
 	settingsMgr := settingsuc.NewManager(settingsRepo, schema, cfg, log)
 
 	// Aplicar overrides sobre la config base (no muta cfg).
-	cfg, err = settingsMgr.Resolve(ctx)
+	cfgResolved, err := settingsMgr.Resolve(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("aplicando overrides; usando config base")
-		// Continuamos con la config base si falla.
-		cfg, _ = config.NewYAMLLoader().Load(configPath)
+	} else {
+		cfg = cfgResolved
 	}
 
 	// * Auth
 	var oauthClient authuc.OAuthClient
 	if cfg.GitHub.ClientID != "" {
 		oauthClient = authadapter.NewGitHubOAuth(cfg.GitHub.ClientID)
-		log.Debug().Str("client_id_prefix", cfg.GitHub.ClientID[:min(8, len(cfg.GitHub.ClientID))]).Msg("GitHub OAuth configurado")
+		log.Debug().Msg("GitHub OAuth configurado")
 	} else {
 		log.Warn().Msg("GitHub ClientID no configurado; auth deshabilitada")
 	}
@@ -143,37 +169,17 @@ func main() {
 	tokenRepo := authadapter.NewKeyringRepository()
 	authManager := authuc.NewManager(tokenRepo, oauthClient, log)
 
-	//  * KeyMap
-	keyRegistry := keys.New(nil)
-
 	// * UI
 
-	log.Info().
-		Msg("Brain CLI iniciando")
+	// Styles
+	appStyles := styles.New(
+		theme.Get(cfg.UI.Theme),
+		true,
+		icons.Get(cfg.UI.Icons),
+	)
 
-	// Resolve initial theme from config
-	// Resolve initial theme from config
-	// Resolve initial theme from config
-	initialTheme := theme.Default()
-	if cfg.UI.Theme != "" && theme.Exists(cfg.UI.Theme) {
-		initialTheme = theme.Get(cfg.UI.Theme)
-	}
-
-	// [NUEVO] Resolve icon set from config
-	iconName := cfg.UI.Icons
-	if !icons.Exists(iconName) {
-		iconName = icons.DefaultName
-	}
-	iconSet := icons.Get(iconName)
-
-	log.Debug().
-		Str("theme", initialTheme.Name).
-		Str("icons", iconName).
-		Msg("apariencia cargada")
-
-	// [FIX] Tercer argumento: iconSet
-	appStyles := styles.New(initialTheme, true, iconSet)
-
+	log.Info().Msg("Brain CLI iniciando")
+	// Deps
 	deps := ui.Deps{
 		Version:         Version,
 		Cfg:             cfg,
@@ -183,7 +189,7 @@ func main() {
 		AuthManager:     authManager,
 		ExecRepo:        execRepo,
 		SettingsManager: settingsMgr,
-		Keys:            keyRegistry,
+		Keys:            keys.New(nil),
 		Log:             log,
 		Manager:         managerUC,
 		ToolManager:     toolManagerUC,
@@ -191,12 +197,13 @@ func main() {
 		Styles:          &appStyles,
 	}
 
-	p := tea.NewProgram(
-		ui.NewModels(
-			deps,
-			taskScreens.NewMainScreen(taskRepo, &appStyles),
-		),
-	)
+	log.Debug().
+		Str("theme", cfg.UI.Theme).
+		Str("icons", cfg.UI.Icons).
+		Msg("apariencia cargada")
+
+	mainScreen := taskScreens.NewListScreen(taskRepo, &appStyles)
+	p := tea.NewProgram(ui.NewModels(deps, mainScreen))
 
 	if _, err := p.Run(); err != nil {
 		log.Fatal().Err(err).Msg("Fallo la TUI")

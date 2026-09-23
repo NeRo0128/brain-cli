@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -24,6 +27,16 @@ type Options struct {
 // New abre la conexión, aplica PRAGMAs y, si AutoMigrate=true,
 // ejecuta las migraciones pendientes.
 func New(ctx context.Context, opts Options) (*SQLite, error) {
+
+	// Crear el directorio padre si no existe (excepto :memory:).
+	if opts.Path != ":memory:" && !strings.HasPrefix(opts.Path, "file::memory:") {
+		dir := filepath.Dir(opts.Path)
+		if dir != "" && dir != "." {
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				return nil, fmt.Errorf("creando directorio de DB %q: %w", dir, err)
+			}
+		}
+	}
 	// _pragma se pasa como query param al driver modernc.
 	// Importante: foreign_keys está OFF por defecto en SQLite.
 	dsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)", opts.Path)

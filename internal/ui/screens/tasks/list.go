@@ -54,7 +54,7 @@ type MainScreen struct {
 	styles        *styles.Styles
 }
 
-func NewMainScreen(repo coretask.Repository, s *styles.Styles) MainScreen {
+func NewListScreen(repo coretask.Repository, s *styles.Styles) MainScreen {
 	l := list.New(nil, uilist.New(s), 80, 20)
 	l.Title = "Tareas"
 	l.SetShowStatusBar(false)
