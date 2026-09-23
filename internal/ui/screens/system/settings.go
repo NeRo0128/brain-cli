@@ -66,6 +66,9 @@ type authStatusLoadedMsg struct {
 	err  error
 }
 
+type logoutDoneMsg struct{ err error }
+type resetDoneMsg struct{ err error }
+
 // --- Screen ---
 
 type SettingsScreen struct {
@@ -78,7 +81,9 @@ type SettingsScreen struct {
 	original map[string]string
 	draft    map[string]string
 
-	ghUser *coreauth.User
+	ghUser     *coreauth.User
+	version    string
+	confirming bool
 
 	activeTab tabID
 	focus     int
@@ -96,6 +101,7 @@ func NewSettingsScreen(
 	authMgr *authuc.Manager,
 	log zerolog.Logger,
 	s *styles.Styles,
+	version string,
 ) SettingsScreen {
 	return SettingsScreen{
 		mgr:       mgr,
@@ -107,6 +113,7 @@ func NewSettingsScreen(
 		draft:     map[string]string{},
 		activeTab: tabApariencia,
 		loading:   true,
+		version:   version,
 	}
 }
 
@@ -157,6 +164,27 @@ func (m SettingsScreen) Update(msg tea.Msg) (screens.ScreenI, tea.Cmd) {
 	case authStatusLoadedMsg:
 		m.ghUser = msg.user
 		return m, nil
+	case logoutDoneMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			return m, nil
+		}
+		m.ghUser = nil
+		m.toast = "Sesión cerrada"
+		m.err = nil
+		return m, nil
+
+	case resetDoneMsg:
+		m.confirming = false
+		if msg.err != nil {
+			m.err = msg.err
+			return m, nil
+		}
+		m.original = map[string]string{}
+		m.draft = map[string]string{}
+		m.toast = "Ajustes reseteados"
+		m.err = nil
+		return m, func() tea.Msg { return screens.SettingsChangedMsg{} }
 
 	case settingsSavedMsg:
 		m.saving = false
@@ -170,6 +198,8 @@ func (m SettingsScreen) Update(msg tea.Msg) (screens.ScreenI, tea.Cmd) {
 		m.err = nil
 		return m, func() tea.Msg { return screens.SettingsChangedMsg{} }
 
+	case screens.AuthStatusChangedMsg:
+		return m, m.loadAuthStatus()
 	case screens.ActionMsg:
 		return m.handleAction(msg)
 	case screens.ReloadMsg:
@@ -198,12 +228,31 @@ func (m SettingsScreen) handleEnter() (screens.ScreenI, tea.Cmd) {
 	f := m.currentField()
 	switch f.label {
 	case "Cuenta GitHub":
+		if m.ghUser != nil {
+			return m, m.doLogout()
+		}
 		return m, screens.OpenAuth(m.styles)
+	case "Abrir repositorio":
+		_ = openBrowser("https://github.com/NeRo0128/brain-cli")
+		return m, nil
+	case "Reset defaults":
+		m.confirming = true
+		return m, nil
 	}
 	return m, nil
 }
 
 func (m SettingsScreen) handleKey(msg tea.KeyPressMsg) (screens.ScreenI, tea.Cmd) {
+
+	if m.confirming {
+		switch msg.String() {
+		case "y", "Y":
+			return m, m.doReset()
+		default:
+			m.confirming = false
+			return m, nil
+		}
+	}
 	switch msg.String() {
 	case "tab":
 		m.activeTab = (m.activeTab + 1) % tabID(len(tabTitles))
@@ -295,10 +344,14 @@ func (m SettingsScreen) fieldsFor(tab tabID) []field {
 			{key: "logging.format", label: "Log format", kind: fkEnum,
 				values: []string{"pretty", "json"}},
 		}
+
 	case tabInfo:
 		return []field{
 			{label: "Versión", kind: fkInfo},
+			{label: "Abrir repositorio", kind: fkAction},
+			{label: "Reset defaults", kind: fkAction},
 		}
+
 	}
 	return nil
 }
@@ -344,6 +397,11 @@ func (m SettingsScreen) View() tea.View {
 		b.WriteString(m.styles.Subtitle.Render("Cargando..."))
 	case m.err != nil:
 		b.WriteString(m.styles.ErrorStyle.Render(m.err.Error()))
+	case m.confirming:
+		b.WriteString(m.styles.WarningStyle.Render("¿Resetear todos los ajustes a defaults?"))
+		b.WriteString("\n\n")
+		b.WriteString(m.styles.Key.Render("y") + " confirmar  ·  " +
+			m.styles.Key.Render("n") + " cancelar")
 	default:
 		b.WriteString(m.renderFields())
 	}
@@ -404,11 +462,12 @@ func (m SettingsScreen) renderField(f field, focused bool) string {
 	case fkAction:
 		if f.label == "Cuenta GitHub" {
 			if m.ghUser != nil {
-				// Autenticado: mostrar el usuario.
 				txt := m.styles.ColoredIcons.Success() + " @" + m.ghUser.Login
+				if focused {
+					txt += "  " + m.styles.Subtitle.Render("(Enter: desconectar)")
+				}
 				value = txt
 			} else {
-				// No autenticado: prompt para conectar.
 				hint := "[ Enter para conectar ]"
 				if focused {
 					value = m.styles.Key.Render(hint)
@@ -416,17 +475,21 @@ func (m SettingsScreen) renderField(f field, focused bool) string {
 					value = m.styles.Subtitle.Render(hint)
 				}
 			}
+			return cursor + labelStyle.Render(f.label) + "\n   " + value
+		}
+		hint := "[ Enter ]"
+		if focused {
+			value = m.styles.Key.Render(hint)
 		} else {
-			// Acción genérica.
-			hint := "[ Enter ]"
-			if focused {
-				value = m.styles.Key.Render(hint)
-			} else {
-				value = m.styles.Subtitle.Render(hint)
-			}
+			value = m.styles.Subtitle.Render(hint)
 		}
 	case fkInfo:
-		value = m.styles.Subtitle.Render("vdev")
+		switch f.label {
+		case "Versión":
+			value = m.styles.Subtitle.Render("v" + m.version)
+		default:
+			value = m.styles.Subtitle.Render("—")
+		}
 	}
 
 	return cursor + labelStyle.Render(f.label) + "\n   " + value
@@ -481,5 +544,26 @@ func (m SettingsScreen) loadAuthStatus() tea.Cmd {
 			return authStatusLoadedMsg{err: err}
 		}
 		return authStatusLoadedMsg{user: user}
+	}
+}
+
+func (m SettingsScreen) doLogout() tea.Cmd {
+	authMgr := m.authMgr
+	return func() tea.Msg {
+		if authMgr == nil {
+			return logoutDoneMsg{}
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		return logoutDoneMsg{err: authMgr.Logout(ctx)}
+	}
+}
+
+func (m SettingsScreen) doReset() tea.Cmd {
+	mgr := m.mgr
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		return resetDoneMsg{err: mgr.Reset(ctx)}
 	}
 }

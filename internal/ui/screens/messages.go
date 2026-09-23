@@ -172,3 +172,5 @@ func OpenSettings(s *styles.Styles) tea.Cmd {
 // SettingsChangedMsg lo emite SettingsScreen tras guardar.
 // El Model recarga config y reconstruye estilos.
 type SettingsChangedMsg struct{}
+
+type AuthStatusChangedMsg struct{}

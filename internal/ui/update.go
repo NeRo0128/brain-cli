@@ -99,6 +99,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		)
 		return m, tea.Batch(toastCmd, push(f), f.Init())
 
+	case screens.AuthStatusChangedMsg:
+		// Propagar al nuevo top (SettingsScreen u otro).
+		top := m.top()
+		newTop, cmd := top.Update(msg)
+		m.setTop(newTop)
+		return m, tea.Batch(toastCmd, cmd)
 	case screens.OpenToolPickerMsg:
 		s := msg.Styles
 		if s == nil {
@@ -211,7 +217,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if s == nil {
 			s = m.deps.Styles
 		}
-		st := system.NewSettingsScreen(m.deps.SettingsManager, m.deps.AuthManager, m.deps.Log, s)
+		st := system.NewSettingsScreen(m.deps.SettingsManager, m.deps.AuthManager, m.deps.Log, s, m.deps.Version)
 		return m, tea.Batch(toastCmd, push(st), st.Init())
 
 	case screens.SettingsChangedMsg:

@@ -148,6 +148,12 @@ func (m AuthScreen) Update(msg tea.Msg) (screens.ScreenI, tea.Cmd) {
 				m.err = nil
 				return m, nil
 			}
+			if m.state == stateConnected {
+				return m, tea.Sequence(
+					screens.Back(),
+					func() tea.Msg { return screens.AuthStatusChangedMsg{} },
+				)
+			}
 			return m, screens.Back()
 
 		case "ctrl+g":
@@ -163,6 +169,12 @@ func (m AuthScreen) Update(msg tea.Msg) (screens.ScreenI, tea.Cmd) {
 				m.code = nil
 				m.err = nil
 				return m, nil
+			}
+			if m.state == stateConnected {
+				return m, tea.Sequence(
+					screens.Back(),
+					func() tea.Msg { return screens.AuthStatusChangedMsg{} },
+				)
 			}
 			return m, screens.Back()
 
@@ -418,8 +430,8 @@ func (e *configError) Error() string {
 	return e.msg
 }
 
-// openBrowser intenta abrir la URL en el navegador por defecto.
-// Best-effort: si falla, no rompe el login.
+// openBrowser intenta abrir la URL en el navegador del sistema.
+// Best-effort: ignora errores.
 func openBrowser(url string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
