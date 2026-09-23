@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	authadapter "github.com/NeRo0128/brain-cli/internal/adapters/auth"
 	"github.com/NeRo0128/brain-cli/internal/adapters/config"
 	"github.com/NeRo0128/brain-cli/internal/adapters/database"
 	"github.com/NeRo0128/brain-cli/internal/adapters/database/repositories"
@@ -19,6 +20,7 @@ import (
 	"github.com/NeRo0128/brain-cli/internal/ui/theme"
 	taskEsxec "github.com/NeRo0128/brain-cli/internal/usecases/task"
 	tooluc "github.com/NeRo0128/brain-cli/internal/usecases/tool"
+	authuc "github.com/NeRo0128/brain-cli/internal/usecases/auth"
 	"github.com/NeRo0128/brain-cli/pkg/utils"
 
 	tea "charm.land/bubbletea/v2"
@@ -26,6 +28,14 @@ import (
 
 // Version will be set during build via ldflags
 var Version = "dev"
+
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
 
 // configPath se puede sobreescribir con BRAIN_CONFIG.
 const defaultConfigPath = "configs/config.yaml"
@@ -91,6 +101,18 @@ func main() {
 		log.Warn().Msg("no hay intérpretes disponibles; el tipo 'script' estará deshabilitado")
 	}
 
+	// * Auth
+	var oauthClient authuc.OAuthClient
+	if cfg.GitHub.ClientID != "" {
+		oauthClient = authadapter.NewGitHubOAuth(cfg.GitHub.ClientID)
+		log.Debug().Str("client_id_prefix", cfg.GitHub.ClientID[:min(8, len(cfg.GitHub.ClientID))]).Msg("GitHub OAuth configurado")
+	} else {
+		log.Warn().Msg("GitHub ClientID no configurado; auth deshabilitada")
+	}
+
+	tokenRepo := authadapter.NewKeyringRepository()
+	authManager := authuc.NewManager(tokenRepo, oauthClient, log)
+
 	//  * KeyMap
 	keyRegistry := keys.New(nil)
 
@@ -123,18 +145,19 @@ func main() {
 	appStyles := styles.New(initialTheme, true, iconSet)
 
 	deps := ui.Deps{
-		Version:     Version,
-		Cfg:         cfg,
-		ExecUC:      executorUC,
-		TaskRepo:    taskRepo,
-		ToolRepo:    toolRepo,
-		ExecRepo:    execRepo,
-		Keys:        keyRegistry,
-		Log:         log,
-		Manager:     managerUC,
-		ToolManager: toolManagerUC,
-		Interpreter: interpreters,
-		Styles:      &appStyles,
+		Version:      Version,
+		Cfg:          cfg,
+		ExecUC:       executorUC,
+		TaskRepo:     taskRepo,
+		ToolRepo:     toolRepo,
+		AuthManager:  authManager,
+		ExecRepo:     execRepo,
+		Keys:         keyRegistry,
+		Log:          log,
+		Manager:      managerUC,
+		ToolManager:  toolManagerUC,
+		Interpreter:  interpreters,
+		Styles:       &appStyles,
 	}
 
 	p := tea.NewProgram(

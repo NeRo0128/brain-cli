@@ -1,4 +1,4 @@
-package screens
+package tasks
 
 import (
 	"strings"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/NeRo0128/brain-cli/internal/ui/components/progress"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
+	"github.com/NeRo0128/brain-cli/internal/ui/screens"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
 
@@ -47,7 +48,7 @@ func (m ExecutingScreen) Keys() []string {
 	return []string{keys.ActionCancel}
 }
 
-func (m ExecutingScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
+func (m ExecutingScreen) Update(msg tea.Msg) (screens.ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case spinner.TickMsg:
 		var cmd tea.Cmd

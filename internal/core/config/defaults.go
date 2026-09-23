@@ -25,5 +25,8 @@ func Default() *Config {
 		Scripts: ScriptsConfig{
 			CustomDir: "scripts",
 		},
+		GitHub: GitHubConfig{
+			ClientID: "Ov23lidLp21XFNT1V7kp",
+		},
 	}
 }

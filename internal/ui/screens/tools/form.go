@@ -1,4 +1,4 @@
-package screens
+package tools
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 	"github.com/NeRo0128/brain-cli/internal/core/tool"
 	"github.com/NeRo0128/brain-cli/internal/ui/components/toast"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
+	"github.com/NeRo0128/brain-cli/internal/ui/screens"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 	taskuc "github.com/NeRo0128/brain-cli/internal/usecases/task"
 )
@@ -214,7 +215,7 @@ func (m FormScreen) Keys() []string {
 	return []string{keys.ActionSave, keys.NavBack, keys.ViewHelp}
 }
 
-func (m FormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
+func (m FormScreen) Update(msg tea.Msg) (screens.ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -230,7 +231,7 @@ func (m FormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 			return m, toast.ShowError(cleanSaveError(msg.err))
 		}
 		m.log.Info().Bool("created", msg.created).Msg("task guardada")
-		return m, FormSaved()
+		return m, screens.FormSaved()
 
 	case toolLoadedForFormMsg:
 		if msg.err == nil {
@@ -242,20 +243,20 @@ func (m FormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 		}
 		return m, nil
 
-	case ToolSelectedMsg:
+	case screens.ToolSelectedMsg:
 		m.selectedTool = msg.Tool
 		m.syncInterpreterToTool()
 		m.log.Debug().Str("tool", msg.Tool.Name).Msg("tool seleccionado")
 		return m, nil
 
-	case ActionMsg:
+	case screens.ActionMsg:
 		switch msg.ID {
 		case keys.ActionSave:
 			return m.save()
 		case keys.NavBack:
-			return m, Back()
+			return m, screens.Back()
 		case keys.ViewHelp:
-			return m, OpenHelp()
+			return m, screens.OpenHelp()
 		}
 		return m, nil
 
@@ -267,7 +268,7 @@ func (m FormScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 }
 
 func (m *FormScreen) resizeInputs(termWidth int) {
-	if termWidth >= twoColMinWidth {
+	if termWidth >= screens.TwoColMinWidth {
 		totalW := termWidth - 2
 		gap := 4
 		colW := max((totalW-gap)/2, 50)
@@ -310,7 +311,7 @@ func (m *FormScreen) syncInterpreterToTool() {
 	}
 }
 
-func (m FormScreen) handleKey(msg tea.KeyPressMsg) (ScreenI, tea.Cmd) {
+func (m FormScreen) handleKey(msg tea.KeyPressMsg) (screens.ScreenI, tea.Cmd) {
 	fields := m.visibleFields()
 	if len(fields) == 0 {
 		return m, nil
@@ -351,7 +352,7 @@ func (m FormScreen) handleKey(msg tea.KeyPressMsg) (ScreenI, tea.Cmd) {
 	return m, nil
 }
 
-func (m FormScreen) delegateToInput(msg tea.Msg) (ScreenI, tea.Cmd) {
+func (m FormScreen) delegateToInput(msg tea.Msg) (screens.ScreenI, tea.Cmd) {
 	var cmd tea.Cmd
 	switch m.currentField() {
 	case fID:
@@ -383,7 +384,7 @@ func (m FormScreen) View() tea.View {
 		b.WriteString("\n\n")
 	}
 
-	if m.width >= twoColMinWidth {
+	if m.width >= screens.TwoColMinWidth {
 		b.WriteString(m.renderTwoColumn())
 	} else {
 		m.scrollToFocus()
@@ -672,7 +673,7 @@ func (m *FormScreen) clampFocus() {
 	m.applyFocus()
 }
 
-func (m FormScreen) save() (ScreenI, tea.Cmd) {
+func (m FormScreen) save() (screens.ScreenI, tea.Cmd) {
 	if m.saving {
 		return m, nil
 	}
@@ -802,7 +803,7 @@ func cleanSaveError(err error) string {
 // campo enfocado, y ajusta el offset para que esté dentro del viewport.
 func (m *FormScreen) scrollToFocus() {
 	// En 2-col no hay scroll: el form cabe.
-	if m.width >= twoColMinWidth {
+	if m.width >= screens.TwoColMinWidth {
 		return
 	}
 	if m.height <= 0 {

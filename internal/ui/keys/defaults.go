@@ -30,6 +30,7 @@ var Defaults = []Binding{
 	{ID: ViewHistory, Keys: []string{"h"}, Help: "historial", Group: GroupView},
 	{ID: ViewSettings, Keys: []string{"s"}, Help: "ajustes", Group: GroupView},
 	{ID: ViewHelp, Keys: []string{"?"}, Help: "ayuda", Group: GroupView},
+	{ID: ViewAuth, Keys: []string{"ctrl+g"}, Help: "github", Group: GroupView},
 
 	// --- Edición ---
 	{ID: EditNew, Keys: []string{"n"}, Help: "nueva", Group: GroupEditing},

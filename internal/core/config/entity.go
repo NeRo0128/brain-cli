@@ -8,6 +8,12 @@ type Config struct {
 	Logging  LoggingConfig  `yaml:"logging"`
 	UI       UIConfig       `yaml:"ui"`
 	Scripts  ScriptsConfig  `yaml:"scripts"`
+	GitHub   GitHubConfig   `yaml:"github"`
+}
+
+// GitHubConfig configura la autenticación con GitHub.
+type GitHubConfig struct {
+	ClientID string `yaml:"client_id"`
 }
 
 // AppConfig contiene metadatos de la aplicación.

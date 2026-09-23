@@ -1,4 +1,4 @@
-package screens
+package system
 
 import (
 	"strings"
@@ -7,6 +7,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
+	"github.com/NeRo0128/brain-cli/internal/ui/screens"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
 
@@ -24,15 +25,15 @@ func NewHelpScreen(km keys.KeyMap, s *styles.Styles) HelpScreen {
 func (m HelpScreen) Init() tea.Cmd  { return func() tea.Msg { return tea.RequestWindowSize() } }
 func (m HelpScreen) Keys() []string { return []string{keys.NavBack} }
 
-func (m HelpScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
+func (m HelpScreen) Update(msg tea.Msg) (screens.ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 		return m, nil
-	case ActionMsg:
+	case screens.ActionMsg:
 		if msg.ID == keys.NavBack {
-			return m, Back()
+			return m, screens.Back()
 		}
 	}
 	return m, nil
@@ -44,7 +45,7 @@ func (m HelpScreen) View() tea.View {
 		return tea.NewView(m.styles.Subtitle.Render("(sin atajos registrados)"))
 	}
 
-	if m.width < helpTwoColMinWidth || len(groups) < 2 {
+	if m.width < screens.HelpTwoColMinWidth || len(groups) < 2 {
 		return tea.NewView(m.renderGroups(groups))
 	}
 

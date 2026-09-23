@@ -9,23 +9,25 @@ import (
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 	taskuc "github.com/NeRo0128/brain-cli/internal/usecases/task"
 	tooluc "github.com/NeRo0128/brain-cli/internal/usecases/tool"
+	authuc "github.com/NeRo0128/brain-cli/internal/usecases/auth"
 	"github.com/rs/zerolog"
 )
 
 // Deps agrupa las dependencias compartidas por el Model.
 // Se pasa por constructor, no se guarda como global.
 type Deps struct {
-	Version     string
-	Cfg         *core.Config
-	ExecUC      *taskuc.Executor
-	TaskRepo    coretask.Repository
-	ToolRepo    tool.Repository
-	Manager     *taskuc.Manager
-	ToolManager *tooluc.Manager
-	ExecRepo    execution.Repository
-	Keys        *keys.Registry
-	Log         zerolog.Logger
-	Styles      *styles.Styles
+	Version      string
+	Cfg          *core.Config
+	ExecUC       *taskuc.Executor
+	TaskRepo     coretask.Repository
+	ToolRepo     tool.Repository
+	Manager      *taskuc.Manager
+	ToolManager  *tooluc.Manager
+	AuthManager  *authuc.Manager
+	ExecRepo     execution.Repository
+	Keys         *keys.Registry
+	Log          zerolog.Logger
+	Styles       *styles.Styles
 
 	Interpreter []tool.Interpreter
 }

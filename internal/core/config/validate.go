@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 var validLogLevels = map[string]bool{
@@ -41,6 +42,9 @@ func (c *Config) Validate() error {
 	}
 	if c.UI.Theme != "" && !validThemes[c.UI.Theme] {
 		errs = append(errs, fmt.Errorf("ui.theme inválido: %q", c.UI.Theme))
+	}
+	if c.GitHub.ClientID != "" && strings.Contains(c.GitHub.ClientID, " ") {
+		errs = append(errs, errors.New("github.client_id no puede contener espacios"))
 	}
 
 	return errors.Join(errs...)

@@ -2,6 +2,7 @@ package screens
 
 import (
 	tea "charm.land/bubbletea/v2"
+	"github.com/NeRo0128/brain-cli/internal/core/auth"
 	"github.com/NeRo0128/brain-cli/internal/core/execution"
 	coretask "github.com/NeRo0128/brain-cli/internal/core/task"
 	"github.com/NeRo0128/brain-cli/internal/core/tool"
@@ -142,4 +143,19 @@ func OpenConfirm(title, message string, action tea.Msg, s *styles.Styles) tea.Cm
 
 func OpenToolForm(t *tool.Tool, s *styles.Styles) tea.Cmd {
 	return func() tea.Msg { return OpenToolFormMsg{Tool: t, Styles: s} }
+}
+
+type OpenAuthMsg struct {
+	Styles *styles.Styles
+}
+
+func OpenAuth(s *styles.Styles) tea.Cmd {
+	return func() tea.Msg { return OpenAuthMsg{Styles: s} }
+}
+
+// AuthCompletedMsg lo emite AuthScreen al terminar StartLogin+CompleteLogin.
+// Se queda en la pantalla (no navega); solo actualiza el estado interno.
+type AuthCompletedMsg struct {
+	User *auth.User
+	Err  error
 }

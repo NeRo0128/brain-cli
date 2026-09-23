@@ -108,6 +108,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		)
 		return m, tea.Batch(toastCmd, push(p), p.Init())
 
+	case screens.OpenAuthMsg:
+		s := msg.Styles
+		if s == nil {
+			s = m.deps.Styles
+		}
+		var a screens.ScreenI
+		if m.deps.AuthManager != nil {
+			a = screens.NewAuthScreen(m.deps.AuthManager, m.deps.Log, s)
+		} else {
+			a = screens.NewAuthScreen(nil, m.deps.Log, s)
+		}
+		return m, tea.Batch(toastCmd, push(a), a.Init())
+
 	case screens.ToolSelectedMsg:
 		if len(m.stack) > 1 {
 			m.stack = m.stack[:len(m.stack)-1]

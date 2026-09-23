@@ -1,4 +1,4 @@
-package screens
+package system
 
 import (
 	"strings"
@@ -7,6 +7,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
+	"github.com/NeRo0128/brain-cli/internal/ui/screens"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
 
@@ -37,7 +38,7 @@ func (m ConfirmScreen) Keys() []string {
 	return []string{keys.NavBack}
 }
 
-func (m ConfirmScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
+func (m ConfirmScreen) Update(msg tea.Msg) (screens.ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -49,15 +50,15 @@ func (m ConfirmScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 		case "s", "y":
 			action := m.action
 			return m, func() tea.Msg {
-				return ConfirmYesMsg{Action: action}
+				return screens.ConfirmYesMsg{Action: action}
 			}
 		case "n":
-			return m, Back()
+			return m, screens.Back()
 		}
 
-	case ActionMsg:
+	case screens.ActionMsg:
 		if msg.ID == keys.NavBack {
-			return m, Back()
+			return m, screens.Back()
 		}
 	}
 	return m, nil

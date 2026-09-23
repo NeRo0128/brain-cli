@@ -1,4 +1,4 @@
-package screens
+package tasks
 
 import (
 	"context"
@@ -16,6 +16,7 @@ import (
 	"github.com/NeRo0128/brain-cli/internal/core/tool"
 	"github.com/NeRo0128/brain-cli/internal/ui/components/states"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
+	"github.com/NeRo0128/brain-cli/internal/ui/screens"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
 
@@ -93,7 +94,7 @@ func (m DetailScreen) Keys() []string {
 	}
 }
 
-func (m DetailScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
+func (m DetailScreen) Update(msg tea.Msg) (screens.ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.viewport = viewport.New(viewport.WithWidth(msg.Width-2), viewport.WithHeight(msg.Height-8))
@@ -110,15 +111,15 @@ func (m DetailScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 		}
 		return m, nil
 
-	case ActionMsg:
+	case screens.ActionMsg:
 		return m.handleAction(msg)
-	case ReloadMsg:
+	case screens.ReloadMsg:
 		return m, m.reload()
 	case taskReloadedMsg:
 		if msg.err != nil {
 			// Task probablemente borrada: volver a main.
 			m.log.Warn().Err(msg.err).Msg("reload: task no encontrada, volviendo")
-			return m, Back()
+			return m, screens.Back()
 		}
 		m.task = msg.task
 		m.tool = msg.tool
@@ -135,18 +136,18 @@ func (m DetailScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	return m, cmd
 }
 
-func (m DetailScreen) handleAction(msg ActionMsg) (ScreenI, tea.Cmd) {
+func (m DetailScreen) handleAction(msg screens.ActionMsg) (screens.ScreenI, tea.Cmd) {
 	switch msg.ID {
 	case keys.ActionExecute:
 		if tk := m.Task(); tk != nil {
-			return m, ExecuteTask(tk.ID, tk.Name)
+			return m, screens.ExecuteTask(tk.ID, tk.Name)
 		}
 	case keys.NavBack:
-		return m, Back()
+		return m, screens.Back()
 	case keys.ViewHelp:
-		return m, OpenHelp()
+		return m, screens.OpenHelp()
 	case keys.EditUpdate:
-		return m, OpenForm(m.task, m.styles)
+		return m, screens.OpenForm(m.task, m.styles)
 	}
 	return m, nil
 }
@@ -166,7 +167,7 @@ func (m DetailScreen) View() tea.View {
 }
 
 func (m DetailScreen) renderContent() string {
-	if m.viewport.Width() >= twoColMinWidth {
+	if m.viewport.Width() >= screens.TwoColMinWidth {
 		return m.renderTwoColumn()
 	}
 	return m.renderStacked()
@@ -233,9 +234,9 @@ func (m DetailScreen) renderMeta() string {
 	b.WriteString("\n")
 	writeKV(&b, m.styles, "Tipo", string(m.task.Type))
 	writeKV(&b, m.styles, "Prioridad", string(m.task.Priority))
-	writeKV(&b, m.styles, "Activa", boolYesNo(m.task.IsActive))
-	writeKV(&b, m.styles, "Favorita", boolYesNo(m.task.IsFavorite))
-	writeKV(&b, m.styles, "Requiere IA", boolYesNo(m.task.RequiresAI))
+	writeKV(&b, m.styles, "Activa", screens.BoolYesNo(m.task.IsActive))
+	writeKV(&b, m.styles, "Favorita", screens.BoolYesNo(m.task.IsFavorite))
+	writeKV(&b, m.styles, "Requiere IA", screens.BoolYesNo(m.task.RequiresAI))
 	if m.task.Description != "" {
 		writeKV(&b, m.styles, "Descripción", m.task.Description)
 	}
@@ -290,8 +291,8 @@ func (m DetailScreen) renderToolSection() string {
 		writeKV(&b, m.styles, "Tipo", string(m.tool.ScriptType))
 		writeKV(&b, m.styles, "Categoría", string(m.tool.Category))
 		writeKV(&b, m.styles, "Timeout", fmt.Sprintf("%ds", m.tool.TimeoutSeconds))
-		writeKV(&b, m.styles, "Sudo", boolYesNo(m.tool.RequiresSudo))
-		writeKV(&b, m.styles, "Builtin", boolYesNo(m.tool.IsBuiltin))
+		writeKV(&b, m.styles, "Sudo", screens.BoolYesNo(m.tool.RequiresSudo))
+		writeKV(&b, m.styles, "Builtin", screens.BoolYesNo(m.tool.IsBuiltin))
 		if m.tool.ScriptPath != "" {
 			writeKV(&b, m.styles, "Script path", m.tool.ScriptPath)
 		}
@@ -308,8 +309,8 @@ func (m DetailScreen) renderPromptSection(contentW int) string {
 	lines := strings.Split(m.task.AIPrompt, "\n")
 	total := len(lines)
 	truncated := false
-	if total > maxTextAreaPreviewLines {
-		lines = lines[:maxTextAreaPreviewLines]
+	if total > screens.MaxTextAreaPreviewLines {
+		lines = lines[:screens.MaxTextAreaPreviewLines]
 		truncated = true
 	}
 
@@ -325,7 +326,7 @@ func (m DetailScreen) renderPromptSection(contentW int) string {
 		box.Render(wrapped) + "\n"
 
 	if truncated {
-		missing := total - maxTextAreaPreviewLines
+		missing := total - screens.MaxTextAreaPreviewLines
 		out += m.styles.Subtitle.Render(
 			fmt.Sprintf("  … (+%d líneas, pulsa e para ver completo)", missing),
 		) + "\n"
@@ -340,8 +341,8 @@ func (m DetailScreen) renderScriptSection(contentW int) string {
 	lines := strings.Split(m.tool.ScriptContent, "\n")
 	total := len(lines)
 	truncated := false
-	if total > maxTextAreaPreviewLines {
-		lines = lines[:maxTextAreaPreviewLines]
+	if total > screens.MaxTextAreaPreviewLines {
+		lines = lines[:screens.MaxTextAreaPreviewLines]
 		truncated = true
 	}
 
@@ -358,7 +359,7 @@ func (m DetailScreen) renderScriptSection(contentW int) string {
 		box.Render(wrapped) + "\n"
 
 	if truncated {
-		missing := total - maxTextAreaPreviewLines
+		missing := total - screens.MaxTextAreaPreviewLines
 		out += m.styles.Subtitle.Render(
 			fmt.Sprintf("  … (+%d líneas, pulsa e para ver completo)", missing),
 		) + "\n"

@@ -23,3 +23,6 @@ ui:
 
 scripts:
   custom_dir: scripts
+
+github:
+  client_id: "${GITHUB_CLIENT_ID:-Ov23lidLp21XFNT1V7kp}"

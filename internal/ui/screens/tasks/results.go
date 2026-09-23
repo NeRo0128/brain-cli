@@ -1,4 +1,4 @@
-package screens
+package tasks
 
 import (
 	"fmt"
@@ -10,6 +10,7 @@ import (
 	"github.com/NeRo0128/brain-cli/internal/core/execution"
 	"github.com/NeRo0128/brain-cli/internal/ui/components/states"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
+	"github.com/NeRo0128/brain-cli/internal/ui/screens"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
 
@@ -42,7 +43,7 @@ func (m ResultScreen) Keys() []string {
 	}
 }
 
-func (m ResultScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
+func (m ResultScreen) Update(msg tea.Msg) (screens.ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		vpW := msg.Width - 2
@@ -55,14 +56,14 @@ func (m ResultScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 		m.ready = true
 		return m, nil
 
-	case ActionMsg:
+	case screens.ActionMsg:
 		switch msg.ID {
 		case keys.NavBack:
-			return m, Back()
+			return m, screens.Back()
 		case keys.ViewHelp:
-			return m, OpenHelp()
+			return m, screens.OpenHelp()
 		case keys.ActionRerun:
-			return m, ExecuteTask(m.exec.TaskID, m.taskName)
+			return m, screens.ExecuteTask(m.exec.TaskID, m.taskName)
 		}
 	}
 

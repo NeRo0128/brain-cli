@@ -1,4 +1,4 @@
-package screens
+package tasks
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	uilist "github.com/NeRo0128/brain-cli/internal/ui/components/list"
 	"github.com/NeRo0128/brain-cli/internal/ui/components/states"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
+	"github.com/NeRo0128/brain-cli/internal/ui/screens"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
 
@@ -94,7 +95,7 @@ func (m HistoryScreen) Keys() []string {
 	return []string{keys.NavConfirm, keys.NavBack, keys.ViewHelp}
 }
 
-func (m HistoryScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
+func (m HistoryScreen) Update(msg tea.Msg) (screens.ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.list.SetSize(msg.Width-2, msg.Height-6)
@@ -107,11 +108,11 @@ func (m HistoryScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 		}
 		return m, nil
 
-	case ReloadMsg:
+	case screens.ReloadMsg:
 		m.loading = true
 		return m, m.Init()
 
-	case ActionMsg:
+	case screens.ActionMsg:
 		return m.handleAction(msg)
 	}
 
@@ -120,12 +121,12 @@ func (m HistoryScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	return m, cmd
 }
 
-func (m HistoryScreen) handleAction(msg ActionMsg) (ScreenI, tea.Cmd) {
+func (m HistoryScreen) handleAction(msg screens.ActionMsg) (screens.ScreenI, tea.Cmd) {
 	switch msg.ID {
 	case keys.NavBack:
-		return m, Back()
+		return m, screens.Back()
 	case keys.ViewHelp:
-		return m, OpenHelp()
+		return m, screens.OpenHelp()
 	}
 	return m, nil
 }

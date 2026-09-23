@@ -1,4 +1,4 @@
-package screens
+package tools
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	uilist "github.com/NeRo0128/brain-cli/internal/ui/components/list"
 	"github.com/NeRo0128/brain-cli/internal/ui/components/states"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
+	"github.com/NeRo0128/brain-cli/internal/ui/screens"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
 
@@ -122,7 +123,7 @@ func (m ToolPickerScreen) Keys() []string {
 	}
 }
 
-func (m ToolPickerScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
+func (m ToolPickerScreen) Update(msg tea.Msg) (screens.ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.list.SetSize(msg.Width-2, msg.Height-6)
@@ -136,15 +137,15 @@ func (m ToolPickerScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 		}
 		return m, nil
 
-	case ReloadMsg:
+	case screens.ReloadMsg:
 		m.loading = true
 		return m, m.Init()
 
-	case ToolCreatedMsg:
+	case screens.ToolCreatedMsg:
 		m.pendingSelectID = &msg.ToolID
 		return m, nil
 
-	case ActionMsg:
+	case screens.ActionMsg:
 		return m.handleAction(msg)
 	}
 
@@ -153,36 +154,36 @@ func (m ToolPickerScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	return m, cmd
 }
 
-func (m ToolPickerScreen) handleAction(msg ActionMsg) (ScreenI, tea.Cmd) {
+func (m ToolPickerScreen) handleAction(msg screens.ActionMsg) (screens.ScreenI, tea.Cmd) {
 	switch msg.ID {
 	case keys.NavConfirm:
 		it, ok := m.list.SelectedItem().(toolItem)
 		if !ok {
 			return m, nil
 		}
-		return m, ToolSelected(it.tool)
+		return m, screens.ToolSelected(it.tool)
 	case keys.NavBack:
-		return m, Back()
+		return m, screens.Back()
 	case keys.ViewHelp:
-		return m, OpenHelp()
+		return m, screens.OpenHelp()
 	case keys.EditNew:
-		return m, OpenToolForm(nil, m.styles)
+		return m, screens.OpenToolForm(nil, m.styles)
 	case keys.EditUpdate:
 		it, ok := m.list.SelectedItem().(toolItem)
 		if !ok {
 			return m, nil
 		}
-		return m, OpenToolForm(it.tool, m.styles)
+		return m, screens.OpenToolForm(it.tool, m.styles)
 	case keys.EditDelete:
 		it, ok := m.list.SelectedItem().(toolItem)
 		if !ok {
 			return m, nil
 		}
-		return m, OpenConfirm(
+		return m, screens.OpenConfirm(
 			"Borrar tool",
 			fmt.Sprintf("¿Borrar el tool '%s'?\n\nEsta acción no se puede deshacer.",
 				it.tool.Name),
-			DeleteToolMsg{ToolID: it.tool.ID, ToolName: it.tool.Name},
+			screens.DeleteToolMsg{ToolID: it.tool.ID, ToolName: it.tool.Name},
 			m.styles,
 		)
 	case keys.NavFilter:

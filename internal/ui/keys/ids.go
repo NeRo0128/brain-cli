@@ -29,6 +29,7 @@ const (
 	ViewHistory  = "view.history"
 	ViewSettings = "view.settings"
 	ViewHelp     = "view.help"
+	ViewAuth     = "view.auth"
 
 	// --- Edición ---
 	EditNew    = "edit.new"

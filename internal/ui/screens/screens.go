@@ -23,16 +23,16 @@ type ScreenI interface {
 	// WantsTextInput() bool
 }
 
-const twoColMinWidth = 120
+const TwoColMinWidth = 120
 
-// maxTextAreaPreviewLines limita cuántas líneas del script se muestran
+// MaxTextAreaPreviewLines limita cuántas líneas del script se muestran
 // en el detalle. Si el script tiene más, se añade un indicador.
 // El usuario puede editarlo con `e` para ver el contenido completo.
-const maxTextAreaPreviewLines = 25
+const MaxTextAreaPreviewLines = 25
 
-const helpTwoColMinWidth = 100
+const HelpTwoColMinWidth = 100
 
-func boolYesNo(v bool) string {
+func BoolYesNo(v bool) string {
 	if v {
 		return "sí"
 	}

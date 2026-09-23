@@ -1,4 +1,4 @@
-package screens
+package tasks
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	uilist "github.com/NeRo0128/brain-cli/internal/ui/components/list"
 	"github.com/NeRo0128/brain-cli/internal/ui/components/states"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
+	"github.com/NeRo0128/brain-cli/internal/ui/screens"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 )
 
@@ -80,7 +81,7 @@ func (m MainScreen) Init() tea.Cmd {
 	}
 }
 
-func (m MainScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
+func (m MainScreen) Update(msg tea.Msg) (screens.ScreenI, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -94,11 +95,11 @@ func (m MainScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 		}
 		return m, nil
 
-	case ReloadMsg:
+	case screens.ReloadMsg:
 		m.loading = true
 		return m, m.Init()
 
-	case ActionMsg:
+	case screens.ActionMsg:
 		return m.handleAction(msg)
 	}
 
@@ -107,34 +108,36 @@ func (m MainScreen) Update(msg tea.Msg) (ScreenI, tea.Cmd) {
 	return m, cmd
 }
 
-func (m MainScreen) handleAction(msg ActionMsg) (ScreenI, tea.Cmd) {
+func (m MainScreen) handleAction(msg screens.ActionMsg) (screens.ScreenI, tea.Cmd) {
 	switch msg.ID {
 	case keys.ActionExecute:
 		if tk := m.SelectedTask(); tk != nil {
-			return m, ExecuteTask(tk.ID, tk.Name)
+			return m, screens.ExecuteTask(tk.ID, tk.Name)
 		}
 	case keys.EditNew:
-		return m, OpenForm(nil, m.styles)
+		return m, screens.OpenForm(nil, m.styles)
 	case keys.ViewDetail:
 		if tk := m.SelectedTask(); tk != nil {
-			return m, OpenDetail(tk, m.styles)
+			return m, screens.OpenDetail(tk, m.styles)
 		}
 	case keys.ViewHistory:
-		return m, OpenHistory(m.styles)
+		return m, screens.OpenHistory(m.styles)
 	case keys.ViewHelp:
-		return m, OpenHelp()
+		return m, screens.OpenHelp()
+	case keys.ViewAuth:
+		return m, screens.OpenAuth(m.styles)
 	case keys.EditDelete:
 		tk := m.SelectedTask()
 		if tk == nil {
 			return m, nil
 		}
-		return m, OpenConfirm(
+		return m, screens.OpenConfirm(
 			"Borrar task",
 			fmt.Sprintf(
 				"¿Borrar la task '%s'?\n\nEsta acción no se puede deshacer.",
 				tk.Name,
 			),
-			DeleteTaskMsg{TaskID: tk.ID, TaskName: tk.Name},
+			screens.DeleteTaskMsg{TaskID: tk.ID, TaskName: tk.Name},
 			m.styles,
 		)
 	}
@@ -177,5 +180,6 @@ func (m MainScreen) Keys() []string {
 		keys.EditNew,
 		keys.EditDelete,
 		keys.ViewHelp,
+		keys.ViewAuth,
 	}
 }
