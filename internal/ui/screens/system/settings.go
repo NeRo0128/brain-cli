@@ -8,12 +8,14 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	coreauth "github.com/NeRo0128/brain-cli/internal/core/auth"
 	core "github.com/NeRo0128/brain-cli/internal/core/config"
 	"github.com/NeRo0128/brain-cli/internal/ui/icons"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/screens"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 	"github.com/NeRo0128/brain-cli/internal/ui/theme"
+	authuc "github.com/NeRo0128/brain-cli/internal/usecases/auth"
 	settingsuc "github.com/NeRo0128/brain-cli/internal/usecases/settings"
 	"github.com/rs/zerolog"
 )
@@ -59,16 +61,24 @@ type settingsSavedMsg struct {
 	err   error
 }
 
+type authStatusLoadedMsg struct {
+	user *coreauth.User
+	err  error
+}
+
 // --- Screen ---
 
 type SettingsScreen struct {
-	mgr    *settingsuc.Manager
-	log    zerolog.Logger
-	styles *styles.Styles
+	mgr     *settingsuc.Manager
+	authMgr *authuc.Manager
+	log     zerolog.Logger
+	styles  *styles.Styles
 
 	base     core.Config
 	original map[string]string
 	draft    map[string]string
+
+	ghUser *coreauth.User
 
 	activeTab tabID
 	focus     int
@@ -81,12 +91,18 @@ type SettingsScreen struct {
 	width, height int
 }
 
-func NewSettingsScreen(mgr *settingsuc.Manager, log zerolog.Logger, s *styles.Styles) SettingsScreen {
+func NewSettingsScreen(
+	mgr *settingsuc.Manager,
+	authMgr *authuc.Manager,
+	log zerolog.Logger,
+	s *styles.Styles,
+) SettingsScreen {
 	return SettingsScreen{
 		mgr:       mgr,
 		log:       log.With().Str("screen", "settings").Logger(),
 		styles:    s,
 		base:      mgr.Base(),
+		authMgr:   authMgr,
 		original:  map[string]string{},
 		draft:     map[string]string{},
 		activeTab: tabApariencia,
@@ -98,6 +114,7 @@ func (m SettingsScreen) Init() tea.Cmd {
 	return tea.Batch(
 		func() tea.Msg { return tea.RequestWindowSize() },
 		m.loadOverrides(),
+		m.loadAuthStatus(),
 	)
 }
 
@@ -137,6 +154,10 @@ func (m SettingsScreen) Update(msg tea.Msg) (screens.ScreenI, tea.Cmd) {
 		m.draft = cloneMap(msg.overrides)
 		return m, nil
 
+	case authStatusLoadedMsg:
+		m.ghUser = msg.user
+		return m, nil
+
 	case settingsSavedMsg:
 		m.saving = false
 		if msg.err != nil {
@@ -151,7 +172,8 @@ func (m SettingsScreen) Update(msg tea.Msg) (screens.ScreenI, tea.Cmd) {
 
 	case screens.ActionMsg:
 		return m.handleAction(msg)
-
+	case screens.ReloadMsg:
+		return m, m.loadAuthStatus()
 	case tea.KeyPressMsg:
 		return m.handleKey(msg)
 	}
@@ -380,10 +402,28 @@ func (m SettingsScreen) renderField(f field, focused bool) string {
 			value = m.styles.Subtitle.Render(current)
 		}
 	case fkAction:
-		if focused {
-			value = m.styles.Key.Render("[ Enter ]")
+		if f.label == "Cuenta GitHub" {
+			if m.ghUser != nil {
+				// Autenticado: mostrar el usuario.
+				txt := m.styles.ColoredIcons.Success() + " @" + m.ghUser.Login
+				value = txt
+			} else {
+				// No autenticado: prompt para conectar.
+				hint := "[ Enter para conectar ]"
+				if focused {
+					value = m.styles.Key.Render(hint)
+				} else {
+					value = m.styles.Subtitle.Render(hint)
+				}
+			}
 		} else {
-			value = m.styles.Subtitle.Render("[ Enter ]")
+			// Acción genérica.
+			hint := "[ Enter ]"
+			if focused {
+				value = m.styles.Key.Render(hint)
+			} else {
+				value = m.styles.Subtitle.Render(hint)
+			}
 		}
 	case fkInfo:
 		value = m.styles.Subtitle.Render("vdev")
@@ -425,4 +465,21 @@ func indexOf(s []string, v string) int {
 		}
 	}
 	return -1
+}
+
+func (m SettingsScreen) loadAuthStatus() tea.Cmd {
+	return func() tea.Msg {
+		if m.authMgr == nil {
+			return authStatusLoadedMsg{}
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		user, err := m.authMgr.CurrentUser(ctx)
+		if err != nil {
+			// No autenticado (o error) → user nil
+			return authStatusLoadedMsg{err: err}
+		}
+		return authStatusLoadedMsg{user: user}
+	}
 }

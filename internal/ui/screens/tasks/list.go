@@ -124,8 +124,7 @@ func (m MainScreen) handleAction(msg screens.ActionMsg) (screens.ScreenI, tea.Cm
 		return m, screens.OpenHistory(m.styles)
 	case keys.ViewHelp:
 		return m, screens.OpenHelp()
-	case keys.ViewAuth:
-		return m, screens.OpenAuth(m.styles)
+
 	case keys.EditDelete:
 		tk := m.SelectedTask()
 		if tk == nil {
@@ -140,6 +139,9 @@ func (m MainScreen) handleAction(msg screens.ActionMsg) (screens.ScreenI, tea.Cm
 			screens.DeleteTaskMsg{TaskID: tk.ID, TaskName: tk.Name},
 			m.styles,
 		)
+
+	case keys.ViewSettings:
+		return m, screens.OpenSettings(m.styles)
 	}
 	return m, nil
 }
@@ -180,6 +182,6 @@ func (m MainScreen) Keys() []string {
 		keys.EditNew,
 		keys.EditDelete,
 		keys.ViewHelp,
-		keys.ViewAuth,
+		keys.ViewSettings,
 	}
 }

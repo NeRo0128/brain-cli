@@ -7,6 +7,7 @@ import (
 	"github.com/NeRo0128/brain-cli/internal/core/execution"
 	toastComp "github.com/NeRo0128/brain-cli/internal/ui/components/toast"
 	"github.com/NeRo0128/brain-cli/internal/ui/screens"
+	"github.com/NeRo0128/brain-cli/internal/ui/screens/tasks"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -28,7 +29,7 @@ func (m Model) startExecution(msg screens.ExecuteTaskMsg, toastCmd tea.Cmd) (tea
 	m.cancelExec = cancel
 	m.executing = true
 
-	ex := screens.NewExecutingScreen(msg.TaskName, m.deps.Styles)
+	ex := tasks.NewExecutingScreen(msg.TaskName, m.deps.Styles)
 	m.stack = append(m.stack, ex)
 
 	return m, tea.Batch(
@@ -52,7 +53,7 @@ func (m Model) handleExecutionFinished(msg executionFinishedMsg, toastCmd tea.Cm
 		return m, toastCmd
 	}
 
-	r := screens.NewResultScreen(msg.taskName, msg.exec, m.deps.Styles)
+	r := tasks.NewResultScreen(msg.taskName, msg.exec, m.deps.Styles)
 	m.setTop(r)
 
 	var toast tea.Cmd

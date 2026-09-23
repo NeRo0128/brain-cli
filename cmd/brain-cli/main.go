@@ -11,16 +11,18 @@ import (
 	"github.com/NeRo0128/brain-cli/internal/adapters/database"
 	"github.com/NeRo0128/brain-cli/internal/adapters/database/repositories"
 	"github.com/NeRo0128/brain-cli/internal/adapters/executor"
+	"github.com/NeRo0128/brain-cli/internal/core/settings"
 	"github.com/NeRo0128/brain-cli/internal/core/tool"
 	"github.com/NeRo0128/brain-cli/internal/ui"
 	"github.com/NeRo0128/brain-cli/internal/ui/icons"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
-	"github.com/NeRo0128/brain-cli/internal/ui/screens"
+	taskScreens "github.com/NeRo0128/brain-cli/internal/ui/screens/tasks"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 	"github.com/NeRo0128/brain-cli/internal/ui/theme"
+	authuc "github.com/NeRo0128/brain-cli/internal/usecases/auth"
+	settingsuc "github.com/NeRo0128/brain-cli/internal/usecases/settings"
 	taskEsxec "github.com/NeRo0128/brain-cli/internal/usecases/task"
 	tooluc "github.com/NeRo0128/brain-cli/internal/usecases/tool"
-	authuc "github.com/NeRo0128/brain-cli/internal/usecases/auth"
 	"github.com/NeRo0128/brain-cli/pkg/utils"
 
 	tea "charm.land/bubbletea/v2"
@@ -101,6 +103,34 @@ func main() {
 		log.Warn().Msg("no hay intérpretes disponibles; el tipo 'script' estará deshabilitado")
 	}
 
+	// ─── Settings ─────────────────────────────────────────────
+	// Cargamos overrides de la DB y los fusionamos con el YAML.
+
+	settingsRepo := repositories.NewSettingsRepository(db.DB())
+
+	schema := settings.NewSchema([]settings.Field{
+		{Key: "ui.theme", Category: "ui",
+			Values: theme.Names()},
+		{Key: "ui.icons", Category: "ui",
+			Values: icons.Names()},
+		{Key: "ui.brand_style", Category: "ui",
+			Values: []string{"minimal", "slim", "big"}},
+		{Key: "logging.level", Category: "logging",
+			Values: []string{"debug", "info", "warn", "error"}},
+		{Key: "logging.format", Category: "logging",
+			Values: []string{"pretty", "json"}},
+	})
+
+	settingsMgr := settingsuc.NewManager(settingsRepo, schema, cfg, log)
+
+	// Aplicar overrides sobre la config base (no muta cfg).
+	cfg, err = settingsMgr.Resolve(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("aplicando overrides; usando config base")
+		// Continuamos con la config base si falla.
+		cfg, _ = config.NewYAMLLoader().Load(configPath)
+	}
+
 	// * Auth
 	var oauthClient authuc.OAuthClient
 	if cfg.GitHub.ClientID != "" {
@@ -145,25 +175,26 @@ func main() {
 	appStyles := styles.New(initialTheme, true, iconSet)
 
 	deps := ui.Deps{
-		Version:      Version,
-		Cfg:          cfg,
-		ExecUC:       executorUC,
-		TaskRepo:     taskRepo,
-		ToolRepo:     toolRepo,
-		AuthManager:  authManager,
-		ExecRepo:     execRepo,
-		Keys:         keyRegistry,
-		Log:          log,
-		Manager:      managerUC,
-		ToolManager:  toolManagerUC,
-		Interpreter:  interpreters,
-		Styles:       &appStyles,
+		Version:         Version,
+		Cfg:             cfg,
+		ExecUC:          executorUC,
+		TaskRepo:        taskRepo,
+		ToolRepo:        toolRepo,
+		AuthManager:     authManager,
+		ExecRepo:        execRepo,
+		SettingsManager: settingsMgr,
+		Keys:            keyRegistry,
+		Log:             log,
+		Manager:         managerUC,
+		ToolManager:     toolManagerUC,
+		Interpreter:     interpreters,
+		Styles:          &appStyles,
 	}
 
 	p := tea.NewProgram(
 		ui.NewModels(
 			deps,
-			screens.NewMainScreen(taskRepo, &appStyles),
+			taskScreens.NewMainScreen(taskRepo, &appStyles),
 		),
 	)
 

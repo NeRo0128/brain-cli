@@ -6,8 +6,12 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	toasts "github.com/NeRo0128/brain-cli/internal/ui/components/toast"
+	"github.com/NeRo0128/brain-cli/internal/ui/icons"
 	"github.com/NeRo0128/brain-cli/internal/ui/keys"
 	"github.com/NeRo0128/brain-cli/internal/ui/screens"
+	"github.com/NeRo0128/brain-cli/internal/ui/screens/system"
+	"github.com/NeRo0128/brain-cli/internal/ui/screens/tasks"
+	"github.com/NeRo0128/brain-cli/internal/ui/screens/tools"
 	"github.com/NeRo0128/brain-cli/internal/ui/styles"
 	"github.com/NeRo0128/brain-cli/internal/ui/theme"
 )
@@ -59,7 +63,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if s == nil {
 			s = m.deps.Styles
 		}
-		d := screens.NewDetailScreen(
+		d := tasks.NewDetailScreen(
 			msg.Task,
 			m.deps.TaskRepo,
 			m.deps.ToolRepo,
@@ -73,11 +77,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if s == nil {
 			s = m.deps.Styles
 		}
-		h := screens.NewHistoryScreen(m.deps.ExecRepo, m.deps.TaskRepo, s)
+		h := tasks.NewHistoryScreen(m.deps.ExecRepo, m.deps.TaskRepo, s)
 		return m, tea.Batch(toastCmd, push(h), h.Init())
 
 	case screens.OpenResultMsg:
-		r := screens.NewResultScreen(msg.TaskName, msg.Exec, m.deps.Styles)
+		r := tasks.NewResultScreen(msg.TaskName, msg.Exec, m.deps.Styles)
 		return m, tea.Batch(toastCmd, replace(r))
 
 	case screens.OpenFormMsg:
@@ -85,7 +89,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if s == nil {
 			s = m.deps.Styles
 		}
-		f := screens.NewFormScreen(
+		f := tools.NewFormScreen(
 			msg.Task,
 			m.deps.Manager,
 			m.deps.ToolRepo,
@@ -100,7 +104,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if s == nil {
 			s = m.deps.Styles
 		}
-		p := screens.NewToolPickerScreen(
+		p := tools.NewToolPickerScreen(
 			m.deps.ToolRepo,
 			msg.CurrentID,
 			msg.FilterType,
@@ -115,9 +119,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		var a screens.ScreenI
 		if m.deps.AuthManager != nil {
-			a = screens.NewAuthScreen(m.deps.AuthManager, m.deps.Log, s)
+			a = system.NewAuthScreen(m.deps.AuthManager, m.deps.Log, s)
 		} else {
-			a = screens.NewAuthScreen(nil, m.deps.Log, s)
+			a = system.NewAuthScreen(nil, m.deps.Log, s)
 		}
 		return m, tea.Batch(toastCmd, push(a), a.Init())
 
@@ -143,7 +147,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if s == nil {
 			s = m.deps.Styles
 		}
-		c := screens.NewConfirm(msg.Title, msg.Message, msg.Action, s)
+		c := system.NewConfirm(msg.Title, msg.Message, msg.Action, s)
 		return m, tea.Batch(toastCmd, push(c), c.Init())
 
 	case screens.ConfirmYesMsg:
@@ -161,13 +165,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.setTop(newTop)
 		return m, tea.Batch(toastCmd, cmd, toasts.ShowSuccess("Task borrada"))
 
-	case screens.OpenToolFormMsg:
-		s := msg.Styles
-		if s == nil {
-			s = m.deps.Styles
-		}
-		f := screens.NewToolFormScreen(msg.Tool, m.deps.ToolManager, m.deps.Log, s)
-		return m, tea.Batch(toastCmd, push(f), f.Init())
+	// case screens.OpenToolFormMsg:
+	// 	s := msg.Styles
+	// 	if s == nil {
+	// 		s = m.deps.Styles
+	// 	}
+	// 	f := tasks.NewToolFormScreen(msg.Tool, m.deps.ToolManager, m.deps.Log, s)
+	// 	return m, tea.Batch(toastCmd, push(f), f.Init())
 
 	case screens.ToolFormSavedMsg:
 		if len(m.stack) > 1 {
@@ -202,6 +206,40 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case screens.ExecuteTaskMsg:
 		return m.startExecution(msg, toastCmd)
 
+	case screens.OpenSettingsMsg:
+		s := msg.Styles
+		if s == nil {
+			s = m.deps.Styles
+		}
+		st := system.NewSettingsScreen(m.deps.SettingsManager, m.deps.AuthManager, m.deps.Log, s)
+		return m, tea.Batch(toastCmd, push(st), st.Init())
+
+	case screens.SettingsChangedMsg:
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		newCfg, err := m.deps.SettingsManager.Resolve(ctx)
+		if err != nil {
+			return m, tea.Batch(toastCmd,
+				toasts.ShowError("Recargando config: "+err.Error()))
+		}
+
+		*m.deps.Cfg = *newCfg
+
+		newTheme := theme.Get(newCfg.UI.Theme)
+		newStyles := styles.New(
+			newTheme,
+			m.styles.Dark,
+			icons.Get(newCfg.UI.Icons),
+		)
+		*m.deps.Styles = newStyles
+
+		m.toast.SetPalette(newTheme.Resolve(newStyles.Dark))
+		m.toast.SetIcons(newStyles.Icons)
+
+		return m, tea.Batch(toastCmd,
+			toasts.ShowSuccess("Ajustes aplicados"),
+			func() tea.Msg { return tea.RequestWindowSize() })
 	case executionFinishedMsg:
 		return m.handleExecutionFinished(msg, toastCmd)
 	}
@@ -226,7 +264,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cancelExec()
 				m.cancelExec = nil
 				m.executing = false
-				if ex, ok := m.top().(screens.ExecutingScreen); ok {
+				if ex, ok := m.top().(tasks.ExecutingScreen); ok {
 					m.setTop(ex.MarkCanceling())
 				}
 				return m, toastCmd

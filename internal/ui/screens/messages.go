@@ -159,3 +159,16 @@ type AuthCompletedMsg struct {
 	User *auth.User
 	Err  error
 }
+
+// OpenSettingsMsg pide al Model pushear el SettingsScreen.
+type OpenSettingsMsg struct {
+	Styles *styles.Styles
+}
+
+func OpenSettings(s *styles.Styles) tea.Cmd {
+	return func() tea.Msg { return OpenSettingsMsg{Styles: s} }
+}
+
+// SettingsChangedMsg lo emite SettingsScreen tras guardar.
+// El Model recarga config y reconstruye estilos.
+type SettingsChangedMsg struct{}
