@@ -27,6 +27,12 @@ jobs:
       - name: Run tests
         run: go test ./...
 
+      - name: Lint
+        run: |
+          go vet ./...
+          go fmt ./...
+          goimports -w .
+
       - name: Cross-compile and checksums
         run: make checksums
         env:
@@ -67,4 +73,4 @@ jobs:
             build/release/SHA256SUMS
           draft: false
           prerelease: false
-          generate_release_notes: false
+          generate_release_notes: true
