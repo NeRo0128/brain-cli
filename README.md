@@ -86,7 +86,7 @@ Al iniciar se presenta la **pantalla principal** con la lista de tareas. Navega,
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  🧠 Brain CLI v2.0           ● IA ready   12 tasks   3★ │
+│  🧠 Brain CLI v1.0.0         ● IA ready   12 tasks   3★ │
 ├──────────────────────────────────────────────────────────┤
 │                                                          │
 │   Conectar WiFi + VPN          [bash]     ★★★           │
@@ -428,4 +428,4 @@ MIT — Ver [LICENSE](LICENSE).
 
 ---
 
-**Autor:** [Nero](https://github.com/NeRo0128) · **Versión:** 2.0.0 · **Estado:** En desarrollo activo
+**Autor:** [Nero](https://github.com/NeRo0128) · **Versión:** 1.0.0 · **Estado:** En desarrollo activo

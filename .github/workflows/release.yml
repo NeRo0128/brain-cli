@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Cross-compile and checksums
+        run: make checksums
+        env:
+          VERSION: ${{ github.ref_name }}
+
+      - name: List build output
+        run: ls -lh build/release/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Brain CLI ${{ github.ref_name }}
+          body: |
+            ## Brain CLI ${{ github.ref_name }}
+
+            Ver [CHANGELOG.md](https://github.com/NeRo0128/brain-cli/blob/main/CHANGELOG.md) para detalles completos.
+
+            ### Instalación rápida
+
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/NeRo0128/brain-cli/main/install.sh | bash
+            ```
+
+            ### Instalación manual
+
+            Descarga el binario correspondiente a tu plataforma desde los assets.
+
+            | Plataforma | Archivo |
+            |-----------|---------|
+            | Linux x86_64 | `brain-cli-linux-amd64` |
+            | Linux ARM64 | `brain-cli-linux-arm64` |
+            | macOS Intel | `brain-cli-darwin-amd64` |
+            | macOS Apple Silicon | `brain-cli-darwin-arm64` |
+            | Windows x86_64 | `brain-cli-windows-amd64.exe` |
+            | Windows ARM64 | `brain-cli-windows-arm64.exe` |
+          files: |
+            build/release/brain-cli-*
+            build/release/SHA256SUMS
+          draft: false
+          prerelease: false
+          generate_release_notes: false

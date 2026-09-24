@@ -35,7 +35,7 @@ type HeaderData struct {
 
 // Header devuelve UNA línea con el chrome superior.
 //
-//	🧠 Brain CLI v2.0               ● IA ready  12 tasks  3★
+//	🧠 Brain CLI v1.0.0             ● IA ready  12 tasks  3★
 //
 // Si width < 80, oculta la parte derecha para no apretar la marca.
 func Header(d HeaderData, s *styles.Styles, width int) string {

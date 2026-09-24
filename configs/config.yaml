@@ -5,6 +5,7 @@
 
 app:
   name: brain-cli
+  version: "1.0.0"
 
 database:
   path: ${BRAIN_DB_PATH:-data/brain.db}

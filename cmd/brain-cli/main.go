@@ -30,7 +30,12 @@ import (
 )
 
 // Version will be set during build via ldflags
-var Version = "dev"
+// Inyectadas en build time vía -ldflags.
+var (
+	Version   = "dev"
+	Commit    = "none"
+	BuildDate = "unknown"
+)
 
 // min returns the minimum of two integers
 func min(a, b int) int {
@@ -97,10 +102,12 @@ func main() {
 	}
 	log.Debug().
 		Str("version", Version).
+		Str("commit", Commit).
+		Str("build_date", BuildDate).
 		Str("config", configPath).
 		Str("db_path", cfg.Database.Path).
+		Bool("dev_mode", paths.DevMode()).
 		Msg("Brain CLI - debug")
-
 	// * DB
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

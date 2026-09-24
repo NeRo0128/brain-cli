@@ -8,33 +8,33 @@ import (
 type Provider interface {
 	// Chat envía un mensaje y recibe una respuesta
 	Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, error)
-	
+
 	// ChatStreaming envía un mensaje y recibe respuesta por streaming
 	ChatStreaming(ctx context.Context, req *ChatRequest, handler StreamHandler) error
-	
+
 	// IsAvailable verifica si el proveedor está disponible
 	IsAvailable(ctx context.Context) bool
-	
+
 	// GetType retorna el tipo de proveedor
 	GetType() string
 }
 
 // ChatRequest representa una petición de chat
 type ChatRequest struct {
-	Prompt      string
-	Model       string
-	Temperature float64
-	MaxTokens   int
+	Prompt       string
+	Model        string
+	Temperature  float64
+	MaxTokens    int
 	SystemPrompt string
-	History     []Message
+	History      []Message
 }
 
 // ChatResponse representa una respuesta de chat
 type ChatResponse struct {
-	Content   string
-	Model     string
+	Content    string
+	Model      string
 	TokensUsed int
-	LatencyMs int64
+	LatencyMs  int64
 }
 
 // Message representa un mensaje en el historial de chat

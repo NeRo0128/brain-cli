@@ -9,7 +9,7 @@
 set -e
 
 echo "🧠 Iniciando brain-cli..."
-echo "Versión: 2.0.0"
+echo "Versión: 1.0.0"
 echo "Fecha: $(date)"
 echo ""
 
