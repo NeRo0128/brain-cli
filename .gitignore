@@ -62,3 +62,6 @@ data/*.db-wal
 # Local working notes (no commitear)
 docs/
 scripts/
+
+# Herramienta de desarrollo — no commitear
+cmd/probe/
